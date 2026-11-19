@@ -59,6 +59,18 @@ struct MeetingSession: Codable, Identifiable, Equatable {
         totalActionItems > 0
     }
     
+    var pendingToDos: [MeetingItem] {
+        items.filter { $0.type == .actionItem && !$0.isCompleted }
+    }
+    
+    var completedToDos: [MeetingItem] {
+        items.filter { $0.type == .actionItem && $0.isCompleted }
+    }
+    
+    var notesList: [MeetingItem] {
+        items.filter { $0.type == .note }
+    }
+    
     var progressFraction: Double {
         totalActionItems == 0 ? 0 : Double(completedCount) / Double(totalActionItems)
     }

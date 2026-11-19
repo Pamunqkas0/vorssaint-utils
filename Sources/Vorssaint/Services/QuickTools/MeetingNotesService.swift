@@ -31,6 +31,7 @@ final class MeetingNotesService: ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         
+        objectWillChange.send()
         let itemType = type ?? quickInputType
         let newItem = MeetingItem(text: trimmed, type: itemType)
         
@@ -40,12 +41,14 @@ final class MeetingNotesService: ObservableObject {
     }
     
     func toggleItem(_ id: UUID) {
+        objectWillChange.send()
         guard let index = document.activeMeeting.items.firstIndex(where: { $0.id == id }) else { return }
         document.activeMeeting.items[index].isCompleted.toggle()
         persist()
     }
     
     func deleteItem(_ id: UUID) {
+        objectWillChange.send()
         document.activeMeeting.items.removeAll { $0.id == id }
         persist()
     }
@@ -54,11 +57,13 @@ final class MeetingNotesService: ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
               let index = document.activeMeeting.items.firstIndex(where: { $0.id == id }) else { return }
+        objectWillChange.send()
         document.activeMeeting.items[index].text = trimmed
         persist()
     }
     
     func clearCompleted() {
+        objectWillChange.send()
         document.activeMeeting.items.removeAll { $0.type == .actionItem && $0.isCompleted }
         persist()
     }

@@ -24,40 +24,23 @@ struct NotchMeetingNotesView: View {
         notesService.document.activeMeeting
     }
     
-    private var filteredItems: [MeetingItem] {
-        let items = activeSession.items
-        switch notesService.selectedFilter {
-        case .all:
-            return items
-        case .todos:
-            return items.filter { $0.type == .actionItem }
-        case .notes:
-            return items.filter { $0.type == .note }
-        }
-    }
-    
     var body: some View {
         VStack(spacing: 8) {
             // Quick Add Input Bar
             inputBar
             
-            // Meeting Items List
-            if filteredItems.isEmpty {
-                emptyStateView
-            } else {
-                itemsScrollView
-            }
+            // Trello-style Horizontal Kanban Board
+            trelloBoard
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.horizontal, 2)
+        .padding(.horizontal, 4)
         .padding(.top, 4)
         .notchBand(leading: {
             headerLeading
         }, trailing: {
             headerTrailing
         })
-        .animation(.smooth(duration: 0.28), value: notesService.isCompactMode)
-        .animation(.smooth(duration: 0.22), value: notesService.selectedFilter)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: activeSession.items)
     }
     
     // MARK: - Header (Top Bar)
@@ -103,13 +86,13 @@ struct NotchMeetingNotesView: View {
                 .buttonStyle(.plain)
             }
             
-            // Progress Badge
+            // Overall Progress Badge
             if activeSession.hasTasks {
                 HStack(spacing: 4) {
                     Circle()
                         .fill(activeSession.completedCount == activeSession.totalActionItems ? Color.green : Color.orange)
                         .frame(width: 5, height: 5)
-                    Text("\(activeSession.completedCount)/\(activeSession.totalActionItems)")
+                    Text("\(activeSession.completedCount)/\(activeSession.totalActionItems) Done")
                         .font(.system(size: 10, weight: .medium)).monospacedDigit()
                         .foregroundStyle(.white.opacity(0.75))
                 }
@@ -122,21 +105,6 @@ struct NotchMeetingNotesView: View {
     
     private var headerTrailing: some View {
         HStack(spacing: 6) {
-            // Compact / Expand Toggle
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                    notesService.isCompactMode.toggle()
-                }
-            } label: {
-                Image(systemName: notesService.isCompactMode ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .frame(width: 26, height: 26)
-                    .background(Color.white.opacity(notesService.isCompactMode ? 0.15 : 0.08), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .help(notesService.isCompactMode ? strings.expandMode : strings.compactMode)
-            
             // Copy Notes Button
             Button {
                 if notesService.copyNotesToClipboard() {
@@ -192,47 +160,56 @@ struct NotchMeetingNotesView: View {
     
     private var inputBar: some View {
         HStack(spacing: 6) {
-            // Type Toggle: [✓ To-Do] [• Note]
+            // Target Column Selector
             HStack(spacing: 2) {
                 Button {
                     notesService.quickInputType = .actionItem
                 } label: {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(notesService.quickInputType == .actionItem ? .orange : .white.opacity(0.4))
-                        .frame(width: 22, height: 22)
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 11))
+                        Text("To-Do")
+                            .font(.system(size: 10.5, weight: .medium))
+                    }
+                    .foregroundStyle(notesService.quickInputType == .actionItem ? .orange : .white.opacity(0.4))
+                    .padding(.horizontal, 6)
+                    .frame(height: 24)
+                    .background(notesService.quickInputType == .actionItem ? Color.white.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
-                .help(strings.todo)
                 
                 Button {
                     notesService.quickInputType = .note
                 } label: {
-                    Image(systemName: "text.alignleft")
-                        .font(.system(size: 11))
-                        .foregroundStyle(notesService.quickInputType == .note ? .cyan : .white.opacity(0.4))
-                        .frame(width: 22, height: 22)
+                    HStack(spacing: 4) {
+                        Image(systemName: "text.alignleft")
+                            .font(.system(size: 11))
+                        Text("Note")
+                            .font(.system(size: 10.5, weight: .medium))
+                    }
+                    .foregroundStyle(notesService.quickInputType == .note ? .cyan : .white.opacity(0.4))
+                    .padding(.horizontal, 6)
+                    .frame(height: 24)
+                    .background(notesService.quickInputType == .note ? Color.white.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
-                .help(strings.note)
             }
-            .padding(.horizontal, 4)
-            .frame(height: 28)
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+            .padding(2)
+            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
             
             // Input TextField
-            TextField(notesService.quickInputType == .actionItem ? "Add to-do task (↵)..." : "Add meeting note (↵)...", text: $inputText, onCommit: {
+            TextField(notesService.quickInputType == .actionItem ? "Add task to To-Do board (Press ↵)..." : "Add note to Notes board (Press ↵)...", text: $inputText, onCommit: {
                 submitItem()
             })
             .textFieldStyle(.plain)
             .font(.system(size: 12))
             .foregroundStyle(.white)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             .overlay(
-                RoundedRectangle(cornerRadius: 7)
-                    .stroke(notesService.quickInputType == .actionItem ? Color.orange.opacity(0.3) : Color.cyan.opacity(0.3), lineWidth: 0.8)
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(notesService.quickInputType == .actionItem ? Color.orange.opacity(0.35) : Color.cyan.opacity(0.35), lineWidth: 0.8)
             )
             
             // Submit Button
@@ -240,7 +217,7 @@ struct NotchMeetingNotesView: View {
                 submitItem()
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 20))
                     .foregroundStyle(inputText.trimmingCharacters(in: .whitespaces).isEmpty ? Color.white.opacity(0.2) : (notesService.quickInputType == .actionItem ? Color.orange : Color.cyan))
             }
             .buttonStyle(.plain)
@@ -249,48 +226,134 @@ struct NotchMeetingNotesView: View {
         .padding(.horizontal, 4)
     }
     
-    // MARK: - Items List
+    // MARK: - Trello Horizontal Kanban Board
     
-    private var itemsScrollView: some View {
-        VStack(spacing: 4) {
-            // Filter Selector (In expanded mode)
-            if !notesService.isCompactMode {
-                HStack(spacing: 8) {
-                    ForEach(MeetingItemFilter.allCases) { filter in
-                        Button {
-                            notesService.selectedFilter = filter
-                        } label: {
-                            Text(filter.rawValue)
-                                .font(.system(size: 10, weight: notesService.selectedFilter == filter ? .semibold : .regular))
-                                .foregroundStyle(notesService.selectedFilter == filter ? .white : .white.opacity(0.5))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(notesService.selectedFilter == filter ? Color.white.opacity(0.16) : Color.clear, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, 6)
-                .padding(.top, 2)
+    private var trelloBoard: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 12) {
+                // Column 1: To-Do (Pending Action Items)
+                kanbanColumn(
+                    title: "To-Do",
+                    icon: "checklist",
+                    accentColor: .orange,
+                    count: activeSession.pendingToDos.count,
+                    items: activeSession.pendingToDos,
+                    emptyMessage: "All caught up! No pending tasks."
+                )
+                
+                // Column 2: Meeting Notes (Notes & Decisions)
+                kanbanColumn(
+                    title: "Notes & Decisions",
+                    icon: "note.text",
+                    accentColor: .cyan,
+                    count: activeSession.notesList.count,
+                    items: activeSession.notesList,
+                    emptyMessage: "No meeting notes recorded yet."
+                )
+                
+                // Column 3: Completed (Finished Tasks)
+                kanbanColumn(
+                    title: "Done",
+                    icon: "checkmark.circle.fill",
+                    accentColor: .green,
+                    count: activeSession.completedToDos.count,
+                    items: activeSession.completedToDos,
+                    emptyMessage: "Finished tasks will appear here.",
+                    showsClearButton: true
+                )
             }
-            
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 4) {
-                    ForEach(filteredItems) { item in
-                        itemRow(item)
-                    }
-                }
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
-            }
-            .scrollIndicators(.automatic)
+            .padding(.horizontal, 4)
+            .padding(.bottom, 6)
         }
     }
     
-    private func itemRow(_ item: MeetingItem) -> some View {
+    // MARK: - Kanban Column Component
+    
+    private func kanbanColumn(
+        title: String,
+        icon: String,
+        accentColor: Color,
+        count: Int,
+        items: [MeetingItem],
+        emptyMessage: String,
+        showsClearButton: Bool = false
+    ) -> some View {
+        VStack(spacing: 6) {
+            // Column Header
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(accentColor)
+                
+                Text(title)
+                    .font(.system(size: 11.5, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.9))
+                
+                Text("\(count)")
+                    .font(.system(size: 9.5, weight: .bold)).monospacedDigit()
+                    .foregroundStyle(accentColor)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1.5)
+                    .background(accentColor.opacity(0.18), in: Capsule())
+                
+                Spacer()
+                
+                if showsClearButton && count > 0 {
+                    Button {
+                        withAnimation { notesService.clearCompleted() }
+                    } label: {
+                        Text("Clear")
+                            .font(.system(size: 9.5, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            
+            // Column Cards ScrollView
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(spacing: 6) {
+                    if items.isEmpty {
+                        VStack(spacing: 4) {
+                            Text(emptyMessage)
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.white.opacity(0.35))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 16)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white.opacity(0.02), in: RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        ForEach(items) { item in
+                            trelloCard(item)
+                        }
+                    }
+                }
+                .padding(.horizontal, 6)
+                .padding(.bottom, 6)
+            }
+        }
+        .frame(width: 235)
+        .frame(maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+    }
+    
+    // MARK: - Trello Card Component
+    
+    private func trelloCard(_ item: MeetingItem) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            // Checkbox for action items or Bullet for notes
+            // Interactive Checkbox / Note Dot
             if item.type == .actionItem {
                 Button {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
@@ -298,91 +361,80 @@ struct NotchMeetingNotesView: View {
                     }
                 } label: {
                     ZStack {
-                        Circle()
-                            .stroke(item.isCompleted ? Color.green : Color.white.opacity(0.35), lineWidth: 1.4)
-                            .frame(width: 15, height: 15)
+                        // Generous clickable base
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(item.isCompleted ? Color.green : Color.white.opacity(0.08))
+                            .frame(width: 17, height: 17)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .stroke(item.isCompleted ? Color.green : Color.white.opacity(0.4), lineWidth: 1.2)
+                            )
+                        
                         if item.isCompleted {
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 15, height: 15)
                             Image(systemName: "checkmark")
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.system(size: 9, weight: .black))
                                 .foregroundStyle(.black)
                         }
                     }
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 2)
+                .help(item.isCompleted ? "Mark incomplete" : "Mark completed")
             } else {
                 Circle()
                     .fill(Color.cyan)
-                    .frame(width: 5, height: 5)
+                    .frame(width: 6, height: 6)
                     .padding(.top, 6)
-                    .padding(.horizontal, 5)
+                    .padding(.leading, 6)
             }
             
-            // Item text
-            Text(item.text)
-                .font(.system(size: 12))
-                .strikethrough(item.isCompleted, color: .white.opacity(0.4))
-                .foregroundStyle(item.isCompleted ? .white.opacity(0.4) : .white.opacity(0.92))
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            // Timestamp
-            Text(item.formattedTime)
-                .font(.system(size: 9.5)).monospacedDigit()
-                .foregroundStyle(.white.opacity(0.3))
-                .padding(.top, 2)
-            
-            // Delete button (visible on hover)
-            if hoveredItemId == item.id {
-                Button {
-                    withAnimation(.smooth(duration: 0.2)) {
-                        notesService.deleteItem(item.id)
+            // Content & Footer
+            VStack(alignment: .leading, spacing: 5) {
+                Text(item.text)
+                    .font(.system(size: 11.5))
+                    .strikethrough(item.isCompleted, color: .white.opacity(0.4))
+                    .foregroundStyle(item.isCompleted ? .white.opacity(0.4) : .white.opacity(0.95))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                HStack {
+                    Text(item.formattedTime)
+                        .font(.system(size: 9)).monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.3))
+                    
+                    Spacer()
+                    
+                    // Delete Button on Hover
+                    if hoveredItemId == item.id {
+                        Button {
+                            withAnimation(.smooth(duration: 0.2)) {
+                                notesService.deleteItem(item.id)
+                            }
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(.red.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.opacity)
                     }
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.red.opacity(0.8))
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
-                .transition(.opacity)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(8)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(hoveredItemId == item.id ? Color.white.opacity(0.06) : Color.white.opacity(0.03))
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.white.opacity(hoveredItemId == item.id ? 0.09 : 0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(Color.white.opacity(hoveredItemId == item.id ? 0.18 : 0.1), lineWidth: 0.8)
+                )
         )
+        .contentShape(RoundedRectangle(cornerRadius: 9))
         .onHover { isHovered in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                hoveredItemId = isHovered ? item.id : nil
-            }
+            hoveredItemId = isHovered ? item.id : nil
         }
-    }
-    
-    // MARK: - Empty State
-    
-    private var emptyStateView: some View {
-        VStack(spacing: 6) {
-            Spacer()
-            Image(systemName: "pencil.and.list.clipboard")
-                .font(.system(size: 26))
-                .foregroundStyle(.white.opacity(0.25))
-            Text(strings.emptyTitle)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
-            Text(strings.emptySubtitle)
-                .font(.system(size: 10))
-                .foregroundStyle(.white.opacity(0.4))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 240)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Actions
