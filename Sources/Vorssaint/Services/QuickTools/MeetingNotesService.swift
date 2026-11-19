@@ -15,6 +15,7 @@ final class MeetingNotesService: ObservableObject {
     }
     @Published var selectedFilter: MeetingItemFilter = .all
     @Published var quickInputType: MeetingItemType = .actionItem
+    @Published var draggingItemId: UUID? = nil
     
     private let store: MeetingNotesStore
     
@@ -27,13 +28,13 @@ final class MeetingNotesService: ObservableObject {
     
     // MARK: - Items Management
     
-    func addItem(text: String, type: MeetingItemType? = nil) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+    func addItem(text: String, details: String = "", type: MeetingItemType? = nil) {
+        let trimmedTitle = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
         
         objectWillChange.send()
         let itemType = type ?? quickInputType
-        let newItem = MeetingItem(text: trimmed, type: itemType)
+        let newItem = MeetingItem(title: trimmedTitle, details: details.trimmingCharacters(in: .whitespacesAndNewlines), type: itemType)
         
         // Insert at beginning of items
         document.activeMeeting.items.insert(newItem, at: 0)
@@ -47,18 +48,38 @@ final class MeetingNotesService: ObservableObject {
         persist()
     }
     
-    func deleteItem(_ id: UUID) {
+    func moveItem(_ id: UUID, to column: MeetingKanbanColumn) {
         objectWillChange.send()
-        document.activeMeeting.items.removeAll { $0.id == id }
+        guard let index = document.activeMeeting.items.firstIndex(where: { $0.id == id }) else { return }
+        switch column {
+        case .todo:
+            document.activeMeeting.items[index].type = .actionItem
+            document.activeMeeting.items[index].isCompleted = false
+        case .notes:
+            document.activeMeeting.items[index].type = .note
+            document.activeMeeting.items[index].isCompleted = false
+        case .done:
+            document.activeMeeting.items[index].type = .actionItem
+            document.activeMeeting.items[index].isCompleted = true
+        }
         persist()
     }
     
-    func updateItemText(_ id: UUID, text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
+    func updateItem(id: UUID, title: String, details: String, type: MeetingItemType, isCompleted: Bool) {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty,
               let index = document.activeMeeting.items.firstIndex(where: { $0.id == id }) else { return }
         objectWillChange.send()
-        document.activeMeeting.items[index].text = trimmed
+        document.activeMeeting.items[index].title = cleanTitle
+        document.activeMeeting.items[index].details = details.trimmingCharacters(in: .whitespacesAndNewlines)
+        document.activeMeeting.items[index].type = type
+        document.activeMeeting.items[index].isCompleted = isCompleted
+        persist()
+    }
+    
+    func deleteItem(_ id: UUID) {
+        objectWillChange.send()
+        document.activeMeeting.items.removeAll { $0.id == id }
         persist()
     }
     
@@ -74,6 +95,7 @@ final class MeetingNotesService: ObservableObject {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalTitle = cleanTitle.isEmpty ? "New Meeting" : cleanTitle
         
+        objectWillChange.send()
         // Archive current meeting if it has content
         if !document.activeMeeting.items.isEmpty {
             document.pastMeetings.insert(document.activeMeeting, at: 0)
@@ -86,6 +108,7 @@ final class MeetingNotesService: ObservableObject {
     func renameMeeting(to title: String) {
         let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
+        objectWillChange.send()
         document.activeMeeting.title = clean
         persist()
     }
@@ -103,7 +126,10 @@ final class MeetingNotesService: ObservableObject {
             markdown += "## Action Items / Tasks:\n"
             for item in todos {
                 let box = item.isCompleted ? "[x]" : "[ ]"
-                markdown += "- \(box) \(item.text)\n"
+                markdown += "- \(box) **\(item.title)**\n"
+                if !item.details.isEmpty {
+                    markdown += "  \(item.details.replacingOccurrences(of: "\n", with: "\n  "))\n"
+                }
             }
             markdown += "\n"
         }
@@ -112,7 +138,10 @@ final class MeetingNotesService: ObservableObject {
         if !notes.isEmpty {
             markdown += "## Key Notes & Takeaways:\n"
             for item in notes {
-                markdown += "- \(item.text)\n"
+                markdown += "- **\(item.title)**\n"
+                if !item.details.isEmpty {
+                    markdown += "  \(item.details.replacingOccurrences(of: "\n", with: "\n  "))\n"
+                }
             }
         }
         
