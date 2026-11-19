@@ -101,6 +101,7 @@ struct NotchSettings: View {
     @AppStorage(DefaultsKey.notchHidesMenuBarIcon) private var hidesMenuBarIcon = false
     @AppStorage(DefaultsKey.notchKeepAwakeActivity) private var keepAwakeActivity = false
     @AppStorage(DefaultsKey.notchScratchpad) private var scratchpad = true
+    @AppStorage(DefaultsKey.notchPasswordVault) private var passwordVault = true
     @AppStorage(DefaultsKey.brightnessControlEnabled) private var brightnessControlEnabled = false
     @AppStorage(DefaultsKey.clipboardHistoryEnabled) private var clipboardHistoryEnabled = false
     @AppStorage(DefaultsKey.notchHoverExpands) private var hoverExpand = true
@@ -538,6 +539,8 @@ struct NotchSettings: View {
             }
         case .scratchpad:
             destination(FeatureStrings.scratchpad(l10n.language).pageTitle, symbol: "note.text", value: $scratchpad)
+        case .passwordVault:
+            destination(FeatureStrings.passwordVault(l10n.language).pageTitle, symbol: "lock.shield", value: $passwordVault)
         case .agents:
             NotchAgentsSettingsControls()
         case .watch:
@@ -880,6 +883,7 @@ struct NotchSettings: View {
         case .camera: return .cameraPreview
         case .downloads: return .notchDownloads
         case .scratchpad: return .scratchpad
+        case .passwordVault: return .passwordVault
         case .agents: return .notchAgents
         case .watch: return .notchWatch
         }

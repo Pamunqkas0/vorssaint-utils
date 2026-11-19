@@ -26,6 +26,12 @@ struct QuickToolsSettings: View {
     @AppStorage(DefaultsKey.scratchpadTextSize) private var scratchpadTextSize = ScratchpadSupport.defaultTextSize
     @AppStorage(DefaultsKey.micMuteMenuBarIndicator) private var micMenuBarIndicator = false
     @AppStorage(DefaultsKey.cleaningModeKeepScreenVisible) private var cleaningModeKeepScreenVisible = false
+    @ObservedObject private var vault = PasswordVaultService.shared
+    @AppStorage(DefaultsKey.panelUtilityPasswordVault) private var showPasswordVaultInPanel = true
+    @AppStorage(DefaultsKey.notchPasswordVault) private var showPasswordVaultInNotch = true
+    @AppStorage(DefaultsKey.passwordVaultAutoLockMinutes) private var passwordVaultAutoLockMinutes = 5
+    @State private var previewPasswordVisible = false
+    @State private var previewCopied = false
 
     var body: some View {
         Form {
@@ -312,6 +318,137 @@ struct QuickToolsSettings: View {
                     Text(FeatureStrings.scratchpad(l10n.language).pageTitle)
                 }
                 .settingsFormSectionAnchor(.scratchpad)
+            }
+
+            if AppFeature.passwordVault.isAvailable {
+                Section {
+                    Button {
+                        PasswordVaultService.shared.show()
+                    } label: {
+                        Label(FeatureStrings.passwordVault(l10n.language).openButton,
+                              systemImage: "lock.shield")
+                    }
+
+                    Text(FeatureStrings.passwordVault(l10n.language).panelCaption)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    // Interactive Preview Card
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Interactive Preview")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Label("AES-256 GCM", systemImage: "shield.lefthalf.filled")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(Color.green)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Token Github")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Spacer()
+                                Text("Login")
+                                    .font(.caption2.weight(.medium))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Color.accentColor.opacity(0.15))
+                                    .foregroundStyle(Color.accentColor)
+                                    .clipShape(Capsule())
+                            }
+
+                            HStack {
+                                Label("developer@github.com", systemImage: "person.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                            }
+
+                            HStack {
+                                Image(systemName: "key.horizontal")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                if previewPasswordVisible {
+                                    Text("ghp_92kL90aBcdE3456F789X")
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .foregroundStyle(Color.yellow)
+                                } else {
+                                    Text("••••••••••••••••••••")
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button {
+                                    previewPasswordVisible.toggle()
+                                } label: {
+                                    Image(systemName: previewPasswordVisible ? "eye.slash.fill" : "eye")
+                                        .font(.caption)
+                                        .foregroundStyle(previewPasswordVisible ? Color.yellow : Color.secondary)
+                                }
+                                .buttonStyle(.borderless)
+                                .help(previewPasswordVisible ? "Hide password" : "Show password")
+
+                                Button {
+                                    previewCopied = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                        previewCopied = false
+                                    }
+                                } label: {
+                                    Image(systemName: previewCopied ? "checkmark" : "doc.on.doc")
+                                        .font(.caption)
+                                        .foregroundStyle(previewCopied ? Color.green : Color.accentColor)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Copy")
+                            }
+                            .padding(6)
+                            .background(Color.primary.opacity(0.04))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .padding(12)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                        )
+
+                        HStack(spacing: 12) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "touchid")
+                                    .font(.caption2)
+                                Text("Touch ID / Passcode")
+                                    .font(.caption2)
+                            }
+                            .foregroundStyle(.secondary)
+
+                            HStack(spacing: 4) {
+                                Image(systemName: "tray.full.fill")
+                                    .font(.caption2)
+                                Text("\(vault.document.items.count) item(s) stored")
+                                    .font(.caption2)
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    Picker("Auto-Lock Inactivity Timeout", selection: $passwordVaultAutoLockMinutes) {
+                        Text("1 minute").tag(1)
+                        Text("5 minutes (Default)").tag(5)
+                        Text("15 minutes").tag(15)
+                        Text("30 minutes").tag(30)
+                        Text("Never").tag(0)
+                    }
+
+                    Toggle("Show in Menu Bar Utilities", isOn: $showPasswordVaultInPanel)
+                    Toggle("Show in Dynamic Island", isOn: $showPasswordVaultInNotch)
+                } header: {
+                    Text(FeatureStrings.passwordVault(l10n.language).pageTitle)
+                }
+                .settingsFormSectionAnchor(.passwordVault)
             }
 
             if AppFeature.cleaningMode.isAvailable {

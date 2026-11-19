@@ -134,6 +134,7 @@ enum ReleaseChangeAliases {
         case .cameraPreview: return ["camera preview", "camera mirror"]
         case .radialMenu: return ["radial menu", "radial menus"]
         case .scratchpad: return ["scratchpad"]
+        case .passwordVault: return ["password vault", "passwords", "password manager", "vault"]
         case .commandBar: return ["command bar", "calculator"]
         case .screenRecorder: return ["screen recording", "screen recordings", "recording", "recordings",
             "recorder", "recording editor", "gif export", "gif exports"]

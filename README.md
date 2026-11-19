@@ -150,6 +150,7 @@ Reorder or hide panel sections, choose a compact layout, and export settings to 
 
 ### Everyday tools
 
+- **Password Vault.** Securely store credentials and sensitive items locally with AES-256 GCM encryption, Apple Keychain master key, Touch ID / macOS passcode authentication, auto-lock timer, password generator, and Dynamic Island quick-access controls.
 - **Dynamic Island.** Keep music, notifications, calendars, timers, downloads and everyday controls around the camera cutout, or a simulated one on other Macs. Customize sections and shortcuts, with optional lyrics, a live equalizer, camera preview and file tools.
 - **AI agents.** Follow Claude, Codex, OpenCode and GitHub Copilot in the Dynamic Island: plan limits and when they reset where available, tokens, API value, models, projects and live work, with a notice when a long task finishes. Codex's banked resets can be used from there too, and each extra Codex account (`CODEX_HOME`) can have a limits card of its own. Copilot uses local CLI/app session logs; its token totals update when shutdown metrics arrive, and aggregate API-value estimates use base rates.
 - **Command Bar.** Search apps, windows, files, clipboard history, snippets and app menu commands from one field. Calculate, convert units, find emoji or run saved scripts.
@@ -261,6 +262,7 @@ Vorssaint is free and will stay that way. If it earned its place in your menu ba
 
 ## Acknowledgements
 
+- Original project and architecture by [@vorssaint](https://github.com/vorssaint) ([vorssaint/vorssaint-utils](https://github.com/vorssaint/vorssaint-utils))
 - App icon designed by [@divisionseven](https://github.com/divisionseven)
 
 ## License

@@ -556,7 +556,7 @@ private enum UtilityPanelItem: String, PanelOrderItem, Identifiable {
     // are migrated once without disturbing the rest of the user's layout.
     case screenshot, quickLauncher, appUpdates, cleaner, homebrew, media, clipboard, windowLayout,
          uninstaller, cleanURL, cleaning, screenOCR, colorPicker, cameraPreview, scratchpad,
-         commandBar, screenRecorder, portManager
+         passwordVault, commandBar, screenRecorder, portManager
 
     var id: String { rawValue }
 
@@ -580,6 +580,7 @@ private enum UtilityPanelItem: String, PanelOrderItem, Identifiable {
         case .screenRecorder: return .screenRecorder
         case .cameraPreview: return .cameraPreview
         case .scratchpad: return .scratchpad
+        case .passwordVault: return .passwordVault
         case .commandBar: return .commandBar
         case .portManager: return .portManager
         }
@@ -615,6 +616,7 @@ struct UtilitiesSection: View {
     @AppStorage(DefaultsKey.panelUtilityColorPicker) private var showColorPicker = true
     @AppStorage(DefaultsKey.panelUtilityCameraPreview) private var showCameraPreview = true
     @AppStorage(DefaultsKey.panelUtilityScratchpad) private var showScratchpad = true
+    @AppStorage(DefaultsKey.panelUtilityPasswordVault) private var showPasswordVault = true
     @AppStorage(DefaultsKey.panelUtilityCommandBar) private var showCommandBar = true
     @AppStorage(DefaultsKey.panelUtilityScreenRecorder) private var showScreenRecorder = true
     @AppStorage(DefaultsKey.panelUtilityPortManager) private var showPortManager = true
@@ -777,6 +779,7 @@ struct UtilitiesSection: View {
         case .colorPicker: return showColorPicker
         case .cameraPreview: return showCameraPreview
         case .scratchpad: return showScratchpad
+        case .passwordVault: return showPasswordVault
         case .commandBar: return showCommandBar
         case .quickLauncher: return showQuickLauncher
         case .screenshot: return showScreenshot
@@ -988,6 +991,19 @@ struct UtilitiesSection: View {
                                     appDelegate()?.closePopover()
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                         ScratchpadService.shared.show()
+                                    }
+                                })
+        case .passwordVault:
+            UtilityActionButton(title: FeatureStrings.passwordVault(l10n.language).pageTitle,
+                                caption: FeatureStrings.passwordVault(l10n.language).panelCaption,
+                                systemImage: "lock.shield",
+                                isEditing: editing,
+                                showsDragHandle: true,
+                                visibility: $showPasswordVault,
+                                action: {
+                                    appDelegate()?.closePopover()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                        PasswordVaultService.shared.show()
                                     }
                                 })
         case .quickLauncher:

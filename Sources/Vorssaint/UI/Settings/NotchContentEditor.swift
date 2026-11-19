@@ -169,6 +169,7 @@ struct NotchPagePreview: View {
         case .system: NotchSystemView(size: size) { _ in }
         case .tools: QuickLauncherView(notchSize: size)
         case .scratchpad: NotchScratchpadStill()
+        case .passwordVault: NotchPasswordVaultStill()
         case .agents:
             // Off, nothing reads the logs, so the page would wait forever.
             if NotchAgentSupport.isEnabled() {
@@ -266,6 +267,29 @@ private struct NotchScratchpadStill: View {
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(.white.opacity(0.55))
             .frame(width: 28, height: 28)
+    }
+}
+
+private struct NotchPasswordVaultStill: View {
+    @ObservedObject private var vault = PasswordVaultService.shared
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        let strings = FeatureStrings.passwordVault(l10n.language)
+        VStack(spacing: 8) {
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(Color.indigo)
+            Text(strings.pageTitle)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+            Text(vault.isUnlocked ? "\(vault.document.items.count) items" : strings.lockedTitle)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(10)
+        .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
     }
 }
 
@@ -404,6 +428,7 @@ extension NotchModule {
         case .camera: return .teal
         case .downloads: return .blue
         case .scratchpad: return .yellow
+        case .passwordVault: return .indigo
         case .agents: return Color(red: 0.85, green: 0.47, blue: 0.34)
         case .watch: return .purple
         }

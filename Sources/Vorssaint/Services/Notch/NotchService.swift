@@ -1925,6 +1925,7 @@ final class NotchService: ObservableObject {
             case .calendar: select(.calendar)
             case .commandBar: perform { CommandBarService.shared.show() }
             case .scratchpad: openScratchpad()
+            case .passwordVault: openPasswordVault()
             case .volume, .brightness, .keyboardLight: select(.controls)
             }
         }
@@ -1939,6 +1940,19 @@ final class NotchService: ObservableObject {
     /// shortcut opens the floating pad as it always did.
     func openScratchpad() {
         if !showScratchpad() { perform { ScratchpadService.shared.show() } }
+    }
+
+    func openPasswordVault() {
+        if !showPasswordVault() { perform { PasswordVaultService.shared.show() } }
+    }
+
+    @discardableResult
+    func showPasswordVault(toggle: Bool = false) -> Bool {
+        guard NotchSupport.routesPasswordVault(), acceptsUserInteraction else { return false }
+        if toggle, expanded, selected == .passwordVault, !showingAppPanel, !showingSections, !showingCommandBar,
+           selectedMetric == nil, let panel, panel.isKeyWindow || NSApp.keyWindow === panel { collapse() }
+        else { open(.passwordVault) }
+        return true
     }
 
     @discardableResult

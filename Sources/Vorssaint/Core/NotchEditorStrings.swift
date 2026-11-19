@@ -92,6 +92,7 @@ struct NotchEditorStrings {
         case .camera: return cameraSummary
         case .downloads: return downloadsSummary
         case .scratchpad: return scratchpadSummary
+        case .passwordVault: return FeatureStrings.passwordVault(L10n.shared.language).hubDescription
         case .agents: return agentsSummary
         case .watch: return watchSummary
         }
