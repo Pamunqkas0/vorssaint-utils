@@ -20,7 +20,7 @@ struct NotchMeetingNotesView: View {
     // Drag & Drop Column Target States
     @State private var targetedColumn: MeetingKanbanColumn? = nil
     
-    // Card Detail & Edit Modal State
+    // Card Detail & Edit View State
     @State private var editingItem: MeetingItem? = nil
     @State private var editCardTitle: String = ""
     @State private var editCardDetails: String = ""
@@ -36,35 +36,54 @@ struct NotchMeetingNotesView: View {
     }
     
     var body: some View {
-        ZStack {
-            VStack(spacing: 8) {
-                // Quick Add Input Bar
-                inputBar
-                
-                // Trello-style Horizontal Kanban Board with Drag & Drop
-                trelloBoard
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 4)
-            .padding(.top, 4)
-            .notchBand(leading: {
-                headerLeading
-            }, trailing: {
-                headerTrailing
-            })
-            
-            // Detail & Edit Modal Overlay
+        Group {
             if let editing = editingItem {
-                cardEditModal(item: editing)
-                    .transition(.opacity.combined(with: .scale(scale: 0.94)))
-                    .zIndex(100)
+                cardDetailView(item: editing)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .trailing).combined(with: .opacity)
+                    ))
+            } else {
+                boardView
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .leading).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: activeSession.items)
-        .animation(.smooth(duration: 0.22), value: editingItem != nil)
+        .notchBand(leading: {
+            if editingItem != nil {
+                detailHeaderLeading
+            } else {
+                headerLeading
+            }
+        }, trailing: {
+            if editingItem != nil {
+                detailHeaderTrailing
+            } else {
+                headerTrailing
+            }
+        })
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: editingItem != nil)
+        .animation(.spring(response: 0.32, dampingFraction: 0.8), value: activeSession.items)
     }
     
-    // MARK: - Header (Top Bar)
+    // MARK: - Board View (Kanban)
+    
+    private var boardView: some View {
+        VStack(spacing: 8) {
+            // Quick Add Input Bar
+            inputBar
+            
+            // Trello-style Horizontal Kanban Board with Drag & Drop
+            trelloBoard
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+    }
+    
+    // MARK: - Board Header (Top Row)
     
     private var headerLeading: some View {
         HStack(spacing: 8) {
@@ -161,7 +180,9 @@ struct NotchMeetingNotesView: View {
                 
                 if activeSession.completedCount > 0 {
                     Button {
-                        withAnimation { notesService.clearCompleted() }
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                            notesService.clearCompleted()
+                        }
                     } label: {
                         Label(strings.clearCompleted, systemImage: "checkmark.circle.badge.xmark")
                     }
@@ -177,6 +198,72 @@ struct NotchMeetingNotesView: View {
         }
     }
     
+    // MARK: - Detail Header (When Editing Card)
+    
+    private var detailHeaderLeading: some View {
+        Button {
+            saveAndDismissEdit()
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 10, weight: .bold))
+                Text("Board")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(.white.opacity(0.85))
+            .padding(.horizontal, 8)
+            .frame(height: 26)
+            .background(Color.white.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var detailHeaderTrailing: some View {
+        HStack(spacing: 6) {
+            // Delete button
+            Button {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                    if let editing = editingItem {
+                        notesService.deleteItem(editing.id)
+                    }
+                    editingItem = nil
+                }
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.red.opacity(0.85))
+                    .frame(width: 26, height: 26)
+                    .background(Color.red.opacity(0.12), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Delete note")
+            
+            // Done button
+            Button {
+                saveAndDismissEdit()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Done")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(
+                    LinearGradient(
+                        colors: [.cyan, .teal],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: Capsule()
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
     // MARK: - Quick Input Bar
     
     private var inputBar: some View {
@@ -184,34 +271,38 @@ struct NotchMeetingNotesView: View {
             // Target Column Selector
             HStack(spacing: 2) {
                 Button {
-                    notesService.quickInputType = .actionItem
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.75)) {
+                        notesService.quickInputType = .actionItem
+                    }
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 11))
+                            .font(.system(size: 10.5))
                         Text("To-Do")
                             .font(.system(size: 10.5, weight: .medium))
                     }
                     .foregroundStyle(notesService.quickInputType == .actionItem ? .orange : .white.opacity(0.4))
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 7)
                     .frame(height: 24)
-                    .background(notesService.quickInputType == .actionItem ? Color.white.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                    .background(notesService.quickInputType == .actionItem ? Color.orange.opacity(0.18) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
                 
                 Button {
-                    notesService.quickInputType = .note
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.75)) {
+                        notesService.quickInputType = .note
+                    }
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "text.alignleft")
-                            .font(.system(size: 11))
+                            .font(.system(size: 10.5))
                         Text("Note")
                             .font(.system(size: 10.5, weight: .medium))
                     }
                     .foregroundStyle(notesService.quickInputType == .note ? .cyan : .white.opacity(0.4))
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 7)
                     .frame(height: 24)
-                    .background(notesService.quickInputType == .note ? Color.white.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                    .background(notesService.quickInputType == .note ? Color.cyan.opacity(0.18) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
             }
@@ -219,18 +310,18 @@ struct NotchMeetingNotesView: View {
             .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
             
             // Input TextField
-            TextField(notesService.quickInputType == .actionItem ? "Add task to To-Do board (Press ↵)..." : "Add note to Notes board (Press ↵)...", text: $inputText, onCommit: {
+            TextField(notesService.quickInputType == .actionItem ? "Quick add task to To-Do (Press ↵)..." : "Quick add note to Notes (Press ↵)...", text: $inputText, onCommit: {
                 submitItem()
             })
             .textFieldStyle(.plain)
-            .font(.system(size: 12))
+            .font(.system(size: 11.5))
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(notesService.quickInputType == .actionItem ? Color.orange.opacity(0.35) : Color.cyan.opacity(0.35), lineWidth: 0.8)
+                    .stroke(notesService.quickInputType == .actionItem ? Color.orange.opacity(0.3) : Color.cyan.opacity(0.3), lineWidth: 0.8)
             )
             
             // Submit Button
@@ -251,7 +342,7 @@ struct NotchMeetingNotesView: View {
     
     private var trelloBoard: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
                 // Column 1: To-Do (Pending Action Items)
                 kanbanColumn(
                     column: .todo,
@@ -327,11 +418,16 @@ struct NotchMeetingNotesView: View {
                 
                 if showsClearButton && count > 0 {
                     Button {
-                        withAnimation { notesService.clearCompleted() }
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                            notesService.clearCompleted()
+                        }
                     } label: {
                         Text("Clear")
                             .font(.system(size: 9.5, weight: .medium))
                             .foregroundStyle(.white.opacity(0.5))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.06), in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
@@ -368,12 +464,13 @@ struct NotchMeetingNotesView: View {
         .frame(maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isTargeted ? accentColor.opacity(0.12) : Color.white.opacity(0.04))
+                .fill(isTargeted ? accentColor.opacity(0.12) : Color.white.opacity(0.035))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(isTargeted ? accentColor : Color.white.opacity(0.08), lineWidth: isTargeted ? 1.5 : 1)
                 )
         )
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isTargeted)
         // Drag and Drop destination onto column
         .onDrop(of: [UTType.text.identifier, UTType.plainText.identifier], isTargeted: Binding(
             get: { targetedColumn == column },
@@ -388,11 +485,14 @@ struct NotchMeetingNotesView: View {
     // MARK: - Trello Card Component with onDrag and onClick
     
     private func trelloCard(_ item: MeetingItem) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        let isHovered = hoveredItemId == item.id
+        let isDragging = notesService.draggingItemId == item.id
+        
+        return HStack(alignment: .top, spacing: 8) {
             // Interactive Checkbox / Note Dot
             if item.type == .actionItem {
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                    withAnimation(.spring(response: 0.26, dampingFraction: 0.65)) {
                         notesService.toggleItem(item.id)
                     }
                 } label: {
@@ -424,13 +524,14 @@ struct NotchMeetingNotesView: View {
                     .padding(.leading, 6)
             }
             
-            // Content & Footer (Click to open edit modal)
-            VStack(alignment: .leading, spacing: 4) {
+            // Content & Footer (Click to open edit view)
+            VStack(alignment: .leading, spacing: 3) {
                 // Card Title
                 Text(item.title)
                     .font(.system(size: 11.5, weight: .medium))
                     .strikethrough(item.isCompleted, color: .white.opacity(0.4))
                     .foregroundStyle(item.isCompleted ? .white.opacity(0.4) : .white.opacity(0.95))
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
@@ -438,15 +539,16 @@ struct NotchMeetingNotesView: View {
                 if !item.details.isEmpty {
                     Text(item.details)
                         .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(.white.opacity(0.5))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 
-                HStack(spacing: 6) {
+                // Meta row: time, note indicator, and hover action buttons
+                HStack(spacing: 5) {
                     if !item.details.isEmpty {
-                        Image(systemName: "text.alignleft")
-                            .font(.system(size: 8))
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 8.5))
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     
@@ -456,10 +558,15 @@ struct NotchMeetingNotesView: View {
                     
                     Spacer()
                     
-                    // Delete Button on Hover
-                    if hoveredItemId == item.id {
+                    if isHovered {
+                        // Pencil edit hint icon
+                        Image(systemName: "pencil")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.white.opacity(0.4))
+                        
+                        // Delete Button
                         Button {
-                            withAnimation(.smooth(duration: 0.2)) {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
                                 notesService.deleteItem(item.id)
                             }
                         } label: {
@@ -471,24 +578,27 @@ struct NotchMeetingNotesView: View {
                         .transition(.opacity)
                     }
                 }
+                .padding(.top, 1)
             }
         }
         .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color.white.opacity(hoveredItemId == item.id ? 0.09 : 0.06))
+                .fill(Color.white.opacity(isHovered ? 0.09 : 0.055))
                 .overlay(
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(Color.white.opacity(hoveredItemId == item.id ? 0.18 : 0.1), lineWidth: 0.8)
+                        .stroke(Color.white.opacity(isHovered ? 0.18 : 0.08), lineWidth: 0.8)
                 )
         )
         .contentShape(RoundedRectangle(cornerRadius: 9))
+        .opacity(isDragging ? 0.35 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHovered)
         .onHover { isHovered in
             hoveredItemId = isHovered ? item.id : nil
         }
         // Click to view & edit details
         .onTapGesture {
-            openEditModal(for: item)
+            openEditView(for: item)
         }
         // Native Drag Support
         .onDrag {
@@ -497,181 +607,156 @@ struct NotchMeetingNotesView: View {
         }
     }
     
-    // MARK: - Card Detail & Edit Modal
+    // MARK: - Card Detail & Edit View (Smooth Slide-In)
     
-    private func cardEditModal(item: MeetingItem) -> some View {
-        ZStack {
-            // Semi-transparent Backdrop
-            Color.black.opacity(0.55)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    dismissEditModal()
+    private func cardDetailView(item: MeetingItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Column Selector & Status Row
+            HStack(spacing: 8) {
+                // Segmented Column Switcher
+                HStack(spacing: 2) {
+                    ForEach(MeetingKanbanColumn.allCases) { col in
+                        let isSelected = currentColumn(for: editCardType, isCompleted: editCardCompleted) == col
+                        Button {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                                selectColumn(col)
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: col.icon)
+                                    .font(.system(size: 9.5))
+                                Text(col.rawValue)
+                                    .font(.system(size: 10.5, weight: isSelected ? .bold : .medium))
+                            }
+                            .foregroundStyle(isSelected ? col.accentColor : .white.opacity(0.4))
+                            .padding(.horizontal, 7)
+                            .frame(height: 24)
+                            .background(isSelected ? col.accentColor.opacity(0.18) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                .padding(2)
+                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                
+                Spacer()
+                
+                // Timestamp
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 9))
+                    Text(item.formattedTime)
+                        .font(.system(size: 9.5)).monospacedDigit()
+                }
+                .foregroundStyle(.white.opacity(0.35))
+            }
             
-            // Modal Card Container
-            VStack(alignment: .leading, spacing: 12) {
-                // Modal Header
-                HStack {
-                    HStack(spacing: 6) {
-                        Image(systemName: editCardType == .actionItem ? "checklist" : "note.text")
-                            .foregroundStyle(editCardType == .actionItem ? Color.orange : Color.cyan)
-                        Text(editCardType == .actionItem ? "Edit Task" : "Edit Note")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                    
-                    Spacer()
-                    
-                    // Column Type Switcher
-                    HStack(spacing: 2) {
-                        Button {
-                            editCardType = .actionItem
-                        } label: {
-                            Text("To-Do")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(editCardType == .actionItem ? .orange : .white.opacity(0.4))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(editCardType == .actionItem ? Color.white.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Button {
-                            editCardType = .note
-                        } label: {
-                            Text("Note")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(editCardType == .note ? .cyan : .white.opacity(0.4))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(editCardType == .note ? Color.white.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(2)
-                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
-                    
+            // Title Input Row (with interactive checkbox if actionItem)
+            HStack(spacing: 8) {
+                if editCardType == .actionItem {
                     Button {
-                        dismissEditModal()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                // Title Field
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("TITLE")
-                        .font(.system(size: 9.5, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.4))
-                    
-                    TextField("Card title...", text: $editCardTitle)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 0.8)
-                        )
-                }
-                
-                // Description Field
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("DESCRIPTION & NOTES")
-                        .font(.system(size: 9.5, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.4))
-                    
-                    TextEditor(text: $editCardDetails)
-                        .font(.system(size: 11.5))
-                        .lineSpacing(2)
-                        .foregroundStyle(.white)
-                        .padding(6)
-                        .frame(minHeight: 80, maxHeight: 110)
-                        .scrollContentBackground(.hidden)
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 0.8)
-                        )
-                }
-                
-                // Modal Footer Actions
-                HStack {
-                    if editCardType == .actionItem {
-                        Button {
+                        withAnimation(.spring(response: 0.24, dampingFraction: 0.7)) {
                             editCardCompleted.toggle()
-                        } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: editCardCompleted ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(editCardCompleted ? .green : .white.opacity(0.5))
-                                Text(editCardCompleted ? "Completed" : "Mark as Done")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(.white.opacity(0.8))
+                        }
+                    } label: {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(editCardCompleted ? Color.green : Color.white.opacity(0.08))
+                                .frame(width: 20, height: 20)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(editCardCompleted ? Color.green : Color.white.opacity(0.35), lineWidth: 1.2)
+                                )
+                            if editCardCompleted {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 10, weight: .black))
+                                    .foregroundStyle(.black)
                             }
                         }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    Spacer()
-                    
-                    Button {
-                        withAnimation {
-                            notesService.deleteItem(item.id)
-                            dismissEditModal()
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "trash")
-                            Text("Delete")
-                        }
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.red.opacity(0.9))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    
-                    Button {
-                        saveCardEdit(for: item)
-                    } label: {
-                        Text("Save Changes")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5)
-                            .background(Color.cyan, in: RoundedRectangle(cornerRadius: 6))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(editCardTitle.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .help(editCardCompleted ? "Mark incomplete" : "Mark completed")
                 }
-                .padding(.top, 4)
-            }
-            .padding(14)
-            .frame(width: 380)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(nsColor: .windowBackgroundColor).opacity(0.95))
+                
+                TextField("Task or Note title...", text: $editCardTitle)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+                    .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
                     )
-                    .shadow(color: .black.opacity(0.6), radius: 20, x: 0, y: 10)
-            )
+            }
+            
+            // Multiline Description Editor
+            ZStack(alignment: .topLeading) {
+                if editCardDetails.isEmpty {
+                    Text("Add meeting notes, agenda details, links, or action items...")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.white.opacity(0.3))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
+                
+                TextEditor(text: $editCardDetails)
+                    .font(.system(size: 11.5))
+                    .lineSpacing(3)
+                    .foregroundStyle(.white.opacity(0.92))
+                    .padding(6)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 0.8)
+                    )
+            }
+            .frame(maxHeight: .infinity)
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onExitCommand {
+            saveAndDismissEdit()
         }
     }
     
     // MARK: - Actions & Helpers
     
+    private func currentColumn(for type: MeetingItemType, isCompleted: Bool) -> MeetingKanbanColumn {
+        if type == .actionItem && isCompleted {
+            return .done
+        } else if type == .note {
+            return .notes
+        } else {
+            return .todo
+        }
+    }
+    
+    private func selectColumn(_ column: MeetingKanbanColumn) {
+        switch column {
+        case .todo:
+            editCardType = .actionItem
+            editCardCompleted = false
+        case .notes:
+            editCardType = .note
+            editCardCompleted = false
+        case .done:
+            editCardType = .actionItem
+            editCardCompleted = true
+        }
+    }
+    
     private func handleDrop(providers: [NSItemProvider], targetColumn: MeetingKanbanColumn) -> Bool {
         let draggedId = notesService.draggingItemId
         if let draggedId {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                 notesService.moveItem(draggedId, to: targetColumn)
                 notesService.draggingItemId = nil
                 targetedColumn = nil
@@ -683,7 +768,7 @@ struct NotchMeetingNotesView: View {
         _ = provider.loadObject(ofClass: String.self) { string, _ in
             guard let uuidString = string, let uuid = UUID(uuidString: uuidString) else { return }
             DispatchQueue.main.async {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                     notesService.moveItem(uuid, to: targetColumn)
                     targetedColumn = nil
                 }
@@ -692,22 +777,23 @@ struct NotchMeetingNotesView: View {
         return true
     }
     
-    private func openEditModal(for item: MeetingItem) {
-        editCardTitle = item.title
-        editCardDetails = item.details
-        editCardType = item.type
-        editCardCompleted = item.isCompleted
-        editingItem = item
+    private func openEditView(for item: MeetingItem) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+            editCardTitle = item.title
+            editCardDetails = item.details
+            editCardType = item.type
+            editCardCompleted = item.isCompleted
+            editingItem = item
+        }
     }
     
-    private func dismissEditModal() {
-        editingItem = nil
-    }
-    
-    private func saveCardEdit(for item: MeetingItem) {
-        let title = editCardTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return }
-        withAnimation(.smooth(duration: 0.2)) {
+    private func saveAndDismissEdit() {
+        guard let item = editingItem else { return }
+        var title = editCardTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if title.isEmpty {
+            title = item.title.isEmpty ? "Untitled Note" : item.title
+        }
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
             notesService.updateItem(
                 id: item.id,
                 title: title,
@@ -715,14 +801,14 @@ struct NotchMeetingNotesView: View {
                 type: editCardType,
                 isCompleted: editCardCompleted
             )
-            dismissEditModal()
+            editingItem = nil
         }
     }
     
     private func submitItem() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        withAnimation(.smooth(duration: 0.2)) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
             notesService.addItem(text: text)
             inputText = ""
         }
