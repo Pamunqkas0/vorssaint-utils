@@ -308,9 +308,18 @@ enum NotchTimerSupport {
         return String(value[..<colon])
     }
 
-    static func compactText(for session: NotchTimerSession, at now: TimeInterval, locale: Locale) -> String {
+    static func isFullCountdownEnabled(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: DefaultsKey.notchTimerFullCountdown) as? Bool ?? true
+    }
+
+    static func compactText(for session: NotchTimerSession, at now: TimeInterval, locale: Locale,
+                            fullFormat: Bool? = nil) -> String {
+        let full = fullFormat ?? isFullCountdownEnabled()
         let reading = session.reading(at: now)
         if session.countsUp { return compactStopwatchText(reading) }
+        if full {
+            return clockText(reading)
+        }
         return reading >= 3600 ? compactHoursText(reading) : compactText(reading, locale: locale)
     }
 
@@ -346,7 +355,7 @@ enum NotchTimerSupport {
 
     /// A wing is never narrower than the music strip's; the longest readings
     /// keep the width the strip always had.
-    static let stripWingRange: ClosedRange<CGFloat> = 44...64
+    static let stripWingRange: ClosedRange<CGFloat> = 44...72
     /// Air between the camera and what sits beside it.
     static let stripCameraGap: CGFloat = 6
 

@@ -278,7 +278,7 @@ enum SettingsDirectory {
             .init([notchCalendar.countdown, notchCalendar.countdownLead, notchCalendar.timeLeft, notchCalendar.weekNumbers],
                   feature: .notchCalendar, notch: .module(.calendar)),
             .init([FeatureStrings.notchNotifications(language).hideSystemBanner], feature: .notchNotifications, notch: .module(.notifications)),
-            .init([activities.soundEnabled, activities.hideTimerCountdown], feature: .notchTimer, notch: .module(.timer)),
+            .init([activities.soundEnabled, activities.hideTimerCountdown, activities.timerFullCountdown], feature: .notchTimer, notch: .module(.timer)),
             .init([notch.dragReveal], feature: .shelf, notch: .module(.files), when: state.on(DefaultsKey.notchShelf)),
             .init([notch.clipboardActivity, "clipboard"], feature: .clipboardHistory, notch: .module(.clipboard)),
             .init([FeatureStrings.notchClipboardSize(language).entrySize], feature: .clipboardHistory,

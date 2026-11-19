@@ -2527,7 +2527,7 @@ struct NotchGeometry: Equatable {
         let room = compactSideRoom ?? 0
         let range = NotchTimerSupport.stripWingRange
         let wing = showsDownloads ? 80 : min(range.upperBound, max(range.lowerBound, fitted.isFinite ? fitted.rounded(.up) : 0))
-        compact.compactSideRoom = room.isFinite && room >= 64 ? min(wing, room) : 0
+        compact.compactSideRoom = room.isFinite && room >= range.lowerBound ? min(wing, room) : 0
         // A wider simulated camera must not consume the timer's text budget.
         compact.minimumCompactWidth = cameraWidth + wing * 2
         // Menu changes, including full-screen transitions, must not push the
