@@ -91,17 +91,79 @@ final class MeetingNotesService: ObservableObject {
     
     // MARK: - Meeting Session Management
     
-    func startNewMeeting(title: String) {
+    var allMeetings: [MeetingSession] {
+        var list = [document.activeMeeting]
+        list.append(contentsOf: document.pastMeetings)
+        return list
+    }
+    
+    func startNewMeeting(title: String = "New Meeting") {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalTitle = cleanTitle.isEmpty ? "New Meeting" : cleanTitle
         
         objectWillChange.send()
-        // Archive current meeting if it has content
-        if !document.activeMeeting.items.isEmpty {
+        // Safely save current active meeting into pastMeetings
+        if let existingIdx = document.pastMeetings.firstIndex(where: { $0.id == document.activeMeeting.id }) {
+            document.pastMeetings[existingIdx] = document.activeMeeting
+        } else {
             document.pastMeetings.insert(document.activeMeeting, at: 0)
         }
         
         document.activeMeeting = MeetingSession(title: finalTitle)
+        persist()
+    }
+    
+    func switchToMeeting(id: UUID) {
+        guard id != document.activeMeeting.id else { return }
+        objectWillChange.send()
+        
+        // Save current active meeting into pastMeetings
+        if let existingIdx = document.pastMeetings.firstIndex(where: { $0.id == document.activeMeeting.id }) {
+            document.pastMeetings[existingIdx] = document.activeMeeting
+        } else {
+            document.pastMeetings.insert(document.activeMeeting, at: 0)
+        }
+        
+        // Make the selected past meeting active
+        if let targetIdx = document.pastMeetings.firstIndex(where: { $0.id == id }) {
+            let target = document.pastMeetings.remove(at: targetIdx)
+            document.activeMeeting = target
+        }
+        persist()
+    }
+    
+    func deleteMeeting(id: UUID) {
+        objectWillChange.send()
+        if document.activeMeeting.id == id {
+            if !document.pastMeetings.isEmpty {
+                document.activeMeeting = document.pastMeetings.removeFirst()
+            } else {
+                document.activeMeeting = MeetingSession(title: "New Meeting")
+            }
+        } else {
+            document.pastMeetings.removeAll { $0.id == id }
+        }
+        persist()
+    }
+    
+    func duplicateCurrentMeeting() {
+        objectWillChange.send()
+        if let idx = document.pastMeetings.firstIndex(where: { $0.id == document.activeMeeting.id }) {
+            document.pastMeetings[idx] = document.activeMeeting
+        } else {
+            document.pastMeetings.insert(document.activeMeeting, at: 0)
+        }
+        
+        var dup = document.activeMeeting
+        dup.id = UUID()
+        dup.title = "\(document.activeMeeting.title) (Copy)"
+        dup.createdAt = Date()
+        dup.items = document.activeMeeting.items.map { item in
+            var copy = item
+            copy.id = UUID()
+            return copy
+        }
+        document.activeMeeting = dup
         persist()
     }
     

@@ -27,6 +27,9 @@ struct NotchMeetingNotesView: View {
     @State private var editCardType: MeetingItemType = .actionItem
     @State private var editCardCompleted: Bool = false
     
+    // Boards & Meetings Manager State
+    @State private var showingBoardsManager: Bool = false
+    
     private var strings: MeetingNotesStrings {
         FeatureStrings.meetingNotes(l10n.language)
     }
@@ -43,6 +46,12 @@ struct NotchMeetingNotesView: View {
                         insertion: .move(edge: .trailing).combined(with: .opacity),
                         removal: .move(edge: .trailing).combined(with: .opacity)
                     ))
+            } else if showingBoardsManager {
+                boardsManagerView
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .leading).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
             } else {
                 boardView
                     .transition(.asymmetric(
@@ -54,18 +63,24 @@ struct NotchMeetingNotesView: View {
         .notchBand(leading: {
             if editingItem != nil {
                 detailHeaderLeading
+            } else if showingBoardsManager {
+                boardsManagerHeaderLeading
             } else {
                 headerLeading
             }
         }, trailing: {
             if editingItem != nil {
                 detailHeaderTrailing
+            } else if showingBoardsManager {
+                boardsManagerHeaderTrailing
             } else {
                 headerTrailing
             }
         })
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: editingItem != nil)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: showingBoardsManager)
         .animation(.spring(response: 0.32, dampingFraction: 0.8), value: activeSession.items)
+        .animation(.spring(response: 0.32, dampingFraction: 0.8), value: notesService.allMeetings.count)
     }
     
     // MARK: - Board View (Kanban)
@@ -86,7 +101,7 @@ struct NotchMeetingNotesView: View {
     // MARK: - Board Header (Top Row)
     
     private var headerLeading: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: "list.bullet.clipboard")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(
@@ -104,26 +119,68 @@ struct NotchMeetingNotesView: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(maxWidth: 180)
+                .frame(maxWidth: 160)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
             } else {
-                Button {
-                    titleEditBuffer = activeSession.title
-                    isEditingTitle = true
+                // Interactive Meeting / Board Switcher Dropdown
+                Menu {
+                    Section("Switch Board (\(notesService.allMeetings.count))") {
+                        ForEach(notesService.allMeetings) { session in
+                            Button {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                    notesService.switchToMeeting(id: session.id)
+                                }
+                            } label: {
+                                if session.id == activeSession.id {
+                                    Label(session.title, systemImage: "checkmark")
+                                } else {
+                                    Text(session.title)
+                                }
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            notesService.startNewMeeting(title: "New Meeting")
+                        }
+                    } label: {
+                        Label("New Board / Meeting", systemImage: "plus.circle")
+                    }
+                    
+                    Button {
+                        titleEditBuffer = activeSession.title
+                        isEditingTitle = true
+                    } label: {
+                        Label("Rename Current Board", systemImage: "pencil")
+                    }
+                    
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            showingBoardsManager = true
+                        }
+                    } label: {
+                        Label("Manage All Boards...", systemImage: "square.grid.2x2")
+                    }
                 } label: {
                     HStack(spacing: 4) {
                         Text(activeSession.title)
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
-                        Image(systemName: "pencil")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.white.opacity(0.4))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.5))
                     }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
             }
             
             // Overall Progress Badge
@@ -172,11 +229,47 @@ struct NotchMeetingNotesView: View {
             
             // More Menu Button
             Menu {
+                Menu("Switch Board ▸") {
+                    ForEach(notesService.allMeetings) { session in
+                        Button {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                notesService.switchToMeeting(id: session.id)
+                            }
+                        } label: {
+                            if session.id == activeSession.id {
+                                Label(session.title, systemImage: "checkmark")
+                            } else {
+                                Text(session.title)
+                            }
+                        }
+                    }
+                }
+                
                 Button {
-                    notesService.startNewMeeting(title: "New Meeting")
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        notesService.startNewMeeting(title: "New Meeting")
+                    }
                 } label: {
                     Label(strings.newMeeting, systemImage: "plus.circle")
                 }
+                
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        notesService.duplicateCurrentMeeting()
+                    }
+                } label: {
+                    Label("Duplicate Current Board", systemImage: "plus.square.on.square")
+                }
+                
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        showingBoardsManager = true
+                    }
+                } label: {
+                    Label("Manage All Boards...", systemImage: "square.grid.2x2")
+                }
+                
+                Divider()
                 
                 if activeSession.completedCount > 0 {
                     Button {
@@ -187,6 +280,16 @@ struct NotchMeetingNotesView: View {
                         Label(strings.clearCompleted, systemImage: "checkmark.circle.badge.xmark")
                     }
                 }
+                
+                if notesService.allMeetings.count > 1 {
+                    Button(role: .destructive) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            notesService.deleteMeeting(id: activeSession.id)
+                        }
+                    } label: {
+                        Label("Delete Current Board", systemImage: "trash")
+                    }
+                }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 11, weight: .semibold))
@@ -195,6 +298,226 @@ struct NotchMeetingNotesView: View {
                     .background(Color.white.opacity(0.08), in: Circle())
             }
             .menuStyle(.borderlessButton)
+        }
+    }
+    
+    // MARK: - Boards Manager Header
+    
+    private var boardsManagerHeaderLeading: some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                showingBoardsManager = false
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 10, weight: .bold))
+                Text("Board")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(.white.opacity(0.85))
+            .padding(.horizontal, 8)
+            .frame(height: 26)
+            .background(Color.white.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var boardsManagerHeaderTrailing: some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                notesService.startNewMeeting(title: "New Meeting")
+                showingBoardsManager = false
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .bold))
+                Text("New Board")
+                    .font(.system(size: 11, weight: .bold))
+            }
+            .foregroundStyle(.black)
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(
+                LinearGradient(
+                    colors: [.cyan, .teal],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: Capsule()
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
+    // MARK: - Boards Manager View
+    
+    private var boardsManagerView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header title
+            HStack(spacing: 6) {
+                Image(systemName: "square.grid.2x2")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.cyan)
+                Text("All Saved Boards & Meetings")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("\(notesService.allMeetings.count)")
+                    .font(.system(size: 9.5, weight: .bold)).monospacedDigit()
+                    .foregroundStyle(.cyan)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1.5)
+                    .background(Color.cyan.opacity(0.18), in: Capsule())
+                
+                Spacer()
+                
+                Text("Click to switch board")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 4)
+            
+            // Horizontal list of board cards
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(notesService.allMeetings) { session in
+                        let isActive = session.id == activeSession.id
+                        
+                        Button {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                notesService.switchToMeeting(id: session.id)
+                                showingBoardsManager = false
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                // Top row: Active indicator / Delete button
+                                HStack {
+                                    if isActive {
+                                        HStack(spacing: 4) {
+                                            Circle()
+                                                .fill(Color.green)
+                                                .frame(width: 5, height: 5)
+                                            Text("Active")
+                                                .font(.system(size: 9, weight: .bold))
+                                                .foregroundStyle(.green)
+                                        }
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 2)
+                                        .background(Color.green.opacity(0.15), in: Capsule())
+                                    } else {
+                                        Text(session.formattedDate)
+                                            .font(.system(size: 8.5)).monospacedDigit()
+                                            .foregroundStyle(.white.opacity(0.35))
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    if notesService.allMeetings.count > 1 {
+                                        Button {
+                                            withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                                                notesService.deleteMeeting(id: session.id)
+                                            }
+                                        } label: {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 9))
+                                                .foregroundStyle(.red.opacity(0.7))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("Delete board")
+                                    }
+                                }
+                                
+                                // Board Title
+                                Text(session.title)
+                                    .font(.system(size: 12.5, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                
+                                // Stats
+                                HStack(spacing: 8) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "checklist")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(.orange)
+                                        Text("\(session.completedCount)/\(session.totalActionItems)")
+                                            .font(.system(size: 10)).monospacedDigit()
+                                            .foregroundStyle(.white.opacity(0.7))
+                                    }
+                                    
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "note.text")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(.cyan)
+                                        Text("\(session.totalNotes)")
+                                            .font(.system(size: 10)).monospacedDigit()
+                                            .foregroundStyle(.white.opacity(0.7))
+                                    }
+                                }
+                                
+                                Spacer(minLength: 0)
+                                
+                                // Progress bar
+                                GeometryReader { geo in
+                                    ZStack(alignment: .leading) {
+                                        Capsule()
+                                            .fill(Color.white.opacity(0.08))
+                                            .frame(height: 3)
+                                        Capsule()
+                                            .fill(LinearGradient(colors: [.orange, .green], startPoint: .leading, endPoint: .trailing))
+                                            .frame(width: max(0, geo.size.width * CGFloat(session.progressFraction)), height: 3)
+                                    }
+                                }
+                                .frame(height: 3)
+                            }
+                            .padding(10)
+                            .frame(width: 175, height: 105)
+                            .background(
+                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                    .fill(isActive ? Color.white.opacity(0.09) : Color.white.opacity(0.04))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                            .stroke(isActive ? Color.cyan.opacity(0.6) : Color.white.opacity(0.08), lineWidth: isActive ? 1.5 : 0.8)
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    // Add new board card
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            notesService.startNewMeeting(title: "New Meeting")
+                            showingBoardsManager = false
+                        }
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundStyle(.cyan)
+                            Text("New Board")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.8))
+                        }
+                        .frame(width: 120, height: 105)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.15), style: StrokeStyle(lineWidth: 1, dash: [4]))
+                                .background(Color.white.opacity(0.02), in: RoundedRectangle(cornerRadius: 11))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 6)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onExitCommand {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                showingBoardsManager = false
+            }
         }
     }
     
@@ -669,7 +992,7 @@ struct NotchMeetingNotesView: View {
                                 )
                             if editCardCompleted {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 10, weight: .black))
+                                    .font(.system(size: 10.5, weight: .black))
                                     .foregroundStyle(.black)
                             }
                         }
