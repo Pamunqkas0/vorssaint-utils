@@ -103,6 +103,7 @@ struct NotchSettings: View {
     @AppStorage(DefaultsKey.notchKeepAwakeActivity) private var keepAwakeActivity = false
     @AppStorage(DefaultsKey.notchScratchpad) private var scratchpad = true
     @AppStorage(DefaultsKey.notchPasswordVault) private var passwordVault = true
+    @AppStorage(DefaultsKey.notchMeetingNotes) private var meetingNotes = true
     @AppStorage(DefaultsKey.brightnessControlEnabled) private var brightnessControlEnabled = false
     @AppStorage(DefaultsKey.clipboardHistoryEnabled) private var clipboardHistoryEnabled = false
     @AppStorage(DefaultsKey.notchHoverExpands) private var hoverExpand = true
@@ -134,7 +135,7 @@ struct NotchSettings: View {
          String(brightness), String(keyboardLight),
          String(microphone), String(battery), String(clipboard), String(clipboardWindow), clipboardCardSize,
          String(capture), String(trackChange), captureAction, String(showInCaptures),
-         String(returnHome), homeModule, String(opensActivity), String(scratchpad),
+         String(returnHome), homeModule, String(opensActivity), String(scratchpad), String(passwordVault), String(meetingNotes),
          String(agentsEnabled), String(watchEnabled), String(keepAwakeActivity), String(shortcutEnabled)]
     }
 
@@ -546,6 +547,8 @@ struct NotchSettings: View {
             destination(FeatureStrings.scratchpad(l10n.language).pageTitle, symbol: "note.text", value: $scratchpad)
         case .passwordVault:
             destination(FeatureStrings.passwordVault(l10n.language).pageTitle, symbol: "lock.shield", value: $passwordVault)
+        case .meetingNotes:
+            destination(FeatureStrings.meetingNotes(l10n.language).title, symbol: "list.bullet.clipboard", value: $meetingNotes)
         case .agents:
             NotchAgentsSettingsControls()
         case .watch:
@@ -889,6 +892,7 @@ struct NotchSettings: View {
         case .downloads: return .notchDownloads
         case .scratchpad: return .scratchpad
         case .passwordVault: return .passwordVault
+        case .meetingNotes: return .meetingNotes
         case .agents: return .notchAgents
         case .watch: return .notchWatch
         }

@@ -451,6 +451,73 @@ struct QuickToolsSettings: View {
                 .settingsFormSectionAnchor(.passwordVault)
             }
 
+            if AppFeature.meetingNotes.isAvailable {
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "list.bullet.clipboard")
+                            .font(.system(size: 24))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.cyan, .teal],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(FeatureStrings.meetingNotes(l10n.language).title)
+                                .font(.headline)
+                            Text(FeatureStrings.meetingNotes(l10n.language).subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            NotchService.shared.openMeetingNotes()
+                        } label: {
+                            Label("Open in Island", systemImage: "macbook.and.iphone")
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    // Live stats preview
+                    let activeSession = MeetingNotesService.shared.document.activeMeeting
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("ACTIVE MEETING")
+                                .font(.system(size: 9.5, weight: .bold))
+                                .foregroundStyle(.secondary)
+                            Text(activeSession.title)
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        Spacer()
+                        HStack(spacing: 8) {
+                            Label("\(activeSession.items.count) Items", systemImage: "doc.text")
+                                .font(.system(size: 11, weight: .medium))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.white.opacity(0.08), in: Capsule())
+                            if activeSession.hasTasks {
+                                Label("\(activeSession.completedCount)/\(activeSession.totalActionItems) Done", systemImage: "checkmark.circle")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(activeSession.completedCount == activeSession.totalActionItems ? .green : .orange)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white.opacity(0.08), in: Capsule())
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    Toggle("Compact Mode by Default", isOn: Binding(
+                        get: { MeetingNotesService.shared.isCompactMode },
+                        set: { MeetingNotesService.shared.isCompactMode = $0 }
+                    ))
+                } header: {
+                    Text(FeatureStrings.meetingNotes(l10n.language).title)
+                }
+                .settingsFormSectionAnchor(.meetingNotes)
+            }
+
             if AppFeature.cleaningMode.isAvailable {
                 Section {
                     Button {

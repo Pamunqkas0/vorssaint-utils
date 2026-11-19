@@ -152,7 +152,7 @@ extension AppFeature {
         case .mouseAcceleration, .spacesOrder, .pastePlain, .soundOutputSwitcher, .audioPriority, .micMute,
              .bluetoothSleep, .keepAwake, .quickLauncher, .quickToggles, .quitApps, .colorPicker,
              .screenOCR, .cleaningMode, .mediaTools, .cleaner, .uninstaller, .homebrew, .screenshot,
-             .cameraPreview, .scratchpad, .passwordVault, .commandBar, .screenRecorder, .wallpaper, .fanControl,
+             .cameraPreview, .scratchpad, .passwordVault, .meetingNotes, .commandBar, .screenRecorder, .wallpaper, .fanControl,
              .diskImageInstaller, .killProcess, .portManager:
             return .idle
         case .appUpdates:

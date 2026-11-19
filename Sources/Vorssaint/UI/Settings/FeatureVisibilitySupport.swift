@@ -56,6 +56,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
     case wallpaper
     case scratchpad
     case passwordVault
+    case meetingNotes
     case cleaningMode
     case soundOutputSwitcher
     case keyboardBrightnessShortcuts
@@ -77,7 +78,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
         case .finderCutPaste, .finderRename: return .cutPaste
         case .clipboardHistory, .pastePlain: return .clipboard
         case .quickLauncher, .quickToggles, .quitApps, .micMute, .cameraPreview, .wallpaper, .scratchpad,
-             .passwordVault, .cleaningMode:
+             .passwordVault, .meetingNotes, .cleaningMode:
             return .quickTools
         case .screenshot, .screenshotScrolling, .screenRecorder, .colorPicker, .screenOCR:
             return .screenshot
@@ -435,6 +436,8 @@ extension AppFeature {
             return FeatureSettingsDestination(.quickTools, sectionAnchor: .scratchpad)
         case .passwordVault:
             return FeatureSettingsDestination(.quickTools, sectionAnchor: .passwordVault)
+        case .meetingNotes:
+            return FeatureSettingsDestination(.quickTools, sectionAnchor: .meetingNotes)
         case .commandBar: return FeatureSettingsDestination(.commandBar)
         case .screenRecorder:
             return FeatureSettingsDestination(.screenshot, sectionAnchor: .screenRecorder)
@@ -473,7 +476,7 @@ enum FeatureVisibilitySupport {
         case .shelf: return [.shelf]
         case .media: return [.mediaTools]
         case .quickTools: return [.quickLauncher, .quickToggles, .quitApps, .micMute,
-                                  .cameraPreview, .wallpaper, .scratchpad, .passwordVault, .cleaningMode]
+                                  .cameraPreview, .wallpaper, .scratchpad, .passwordVault, .meetingNotes, .cleaningMode]
         case .urlCleaner: return [.urlCleaner]
         case .cleaner: return [.cleaner]
         case .homebrew: return [.homebrew]

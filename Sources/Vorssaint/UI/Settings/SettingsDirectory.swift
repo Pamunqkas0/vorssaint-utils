@@ -591,6 +591,7 @@ enum SettingsDirectory {
                                          [FeatureStrings.wallpaper(language).pageTitle]),
                                         (.scratchpad, [FeatureStrings.scratchpad(language).pageTitle]),
                                         (.passwordVault, [FeatureStrings.passwordVault(language).pageTitle]),
+                                        (.meetingNotes, [FeatureStrings.meetingNotes(language).title, "to-do", "checklist", "notes"]),
                                         (.cleaningMode, [s.cleaningMenuItem, s.cleaningKeepScreenVisibleToggle]),
                                        ]),
                 SettingsDirectoryItem(page: .screenshot,

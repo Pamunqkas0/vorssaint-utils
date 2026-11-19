@@ -170,6 +170,7 @@ struct NotchPagePreview: View {
         case .tools: QuickLauncherView(notchSize: size)
         case .scratchpad: NotchScratchpadStill()
         case .passwordVault: NotchPasswordVaultStill()
+        case .meetingNotes: NotchMeetingNotesStill()
         case .agents:
             // Off, nothing reads the logs, so the page would wait forever.
             if NotchAgentSupport.isEnabled() {
@@ -284,6 +285,29 @@ private struct NotchPasswordVaultStill: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
             Text(vault.isUnlocked ? "\(vault.document.items.count) items" : strings.lockedTitle)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(10)
+        .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
+    }
+}
+
+private struct NotchMeetingNotesStill: View {
+    @ObservedObject private var notes = MeetingNotesService.shared
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        let active = notes.document.activeMeeting
+        VStack(spacing: 8) {
+            Image(systemName: "list.bullet.clipboard.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(Color.cyan)
+            Text(active.title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("\(active.items.count) items • \(active.completedCount)/\(active.totalActionItems) tasks done")
                 .font(.system(size: 11))
                 .foregroundStyle(.white.opacity(0.6))
         }
@@ -429,6 +453,7 @@ extension NotchModule {
         case .downloads: return .blue
         case .scratchpad: return .yellow
         case .passwordVault: return .indigo
+        case .meetingNotes: return .teal
         case .agents: return Color(red: 0.85, green: 0.47, blue: 0.34)
         case .watch: return .purple
         }

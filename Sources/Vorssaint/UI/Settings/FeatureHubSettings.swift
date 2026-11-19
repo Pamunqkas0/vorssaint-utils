@@ -1203,6 +1203,7 @@ extension AppFeature {
         case .radialMenu: return FeatureStrings.radialMenu(language).pageTitle
         case .scratchpad: return FeatureStrings.scratchpad(language).pageTitle
         case .passwordVault: return FeatureStrings.passwordVault(language).pageTitle
+        case .meetingNotes: return FeatureStrings.meetingNotes(language).pageTitle
         case .commandBar: return FeatureStrings.commandBar(language).pageTitle
         case .cleaningMode: return s.cleaningMenuItem
         case .mediaTools: return s.mediaName
@@ -1291,6 +1292,7 @@ extension AppFeature {
         case .radialMenu: return FeatureStrings.radialMenu(L10n.shared.language).hubDescription
         case .scratchpad: return FeatureStrings.scratchpad(L10n.shared.language).hubDescription
         case .passwordVault: return FeatureStrings.passwordVault(L10n.shared.language).hubDescription
+        case .meetingNotes: return FeatureStrings.meetingNotes(L10n.shared.language).hubDescription
         case .commandBar: return FeatureStrings.commandBar(L10n.shared.language).hubDescription
         case .cleaningMode: return hub.descCleaningMode
         case .mediaTools: return hub.descMediaTools

@@ -1926,6 +1926,7 @@ final class NotchService: ObservableObject {
             case .commandBar: perform { CommandBarService.shared.show() }
             case .scratchpad: openScratchpad()
             case .passwordVault: openPasswordVault()
+            case .meetingNotes: openMeetingNotes()
             case .volume, .brightness, .keyboardLight: select(.controls)
             }
         }
@@ -1944,6 +1945,19 @@ final class NotchService: ObservableObject {
 
     func openPasswordVault() {
         if !showPasswordVault() { perform { PasswordVaultService.shared.show() } }
+    }
+
+    func openMeetingNotes() {
+        showMeetingNotes()
+    }
+
+    @discardableResult
+    func showMeetingNotes(toggle: Bool = false) -> Bool {
+        guard NotchSupport.routesMeetingNotes(), acceptsUserInteraction else { return false }
+        if toggle, expanded, selected == .meetingNotes, !showingAppPanel, !showingSections, !showingCommandBar,
+           selectedMetric == nil, let panel, panel.isKeyWindow || NSApp.keyWindow === panel { collapse() }
+        else { open(.meetingNotes) }
+        return true
     }
 
     @discardableResult

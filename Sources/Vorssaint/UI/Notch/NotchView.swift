@@ -601,6 +601,7 @@ struct NotchView: View {
             case .tools: QuickLauncherView(notchSize: pageSize)
             case .scratchpad: NotchScratchpadView(service: service)
             case .passwordVault: NotchPasswordVaultView(service: service)
+            case .meetingNotes: NotchMeetingNotesView(service: service, size: pageSize)
             case .agents: NotchAgentsView(size: pageSize)
             case .watch: NotchWatchView(size: pageSize)
             }
@@ -837,6 +838,7 @@ extension NotchModule: PanelOrderItem {
         case .tools: return FeatureStrings.notch(language).tools
         case .scratchpad: return FeatureStrings.scratchpad(language).pageTitle
         case .passwordVault: return FeatureStrings.passwordVault(language).pageTitle
+        case .meetingNotes: return FeatureStrings.meetingNotes(language).title
         case .agents: return FeatureStrings.notchAgents(language).title
         case .watch: return FeatureStrings.notchWatch(language).title
         }
