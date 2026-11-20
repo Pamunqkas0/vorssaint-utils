@@ -498,8 +498,8 @@ private struct NotchTimerTile: View {
 
     var body: some View {
         if timer.session.isRunning {
-            TimelineView(.periodic(from: Date(timeIntervalSinceNow: NotchTimerSupport.tickScheduleOffset(
-                for: timer.session, at: timer.now)), by: 1)) { _ in tile }
+            TimelineView(.periodic(from: NotchTimerSupport.tickScheduleDate(for: timer.session, at: timer.now),
+                                   by: NotchTimerSupport.tickInterval(for: timer.session))) { _ in tile }
         } else {
             tile
         }

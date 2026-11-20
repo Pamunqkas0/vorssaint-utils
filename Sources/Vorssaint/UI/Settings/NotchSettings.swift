@@ -18,6 +18,7 @@ struct NotchSettings: View {
     @AppStorage(DefaultsKey.notchTimerSoundEnabled) private var timerSoundEnabled = true
     @AppStorage(DefaultsKey.notchHideTimerCountdown) private var hideTimerCountdown = false
     @AppStorage(DefaultsKey.notchTimerFullCountdown) private var timerFullCountdown = true
+    @AppStorage(DefaultsKey.notchPomodoroFullPrecision) private var pomodoroFullPrecision = true
     @AppStorage(DefaultsKey.notchCameraEnabled) private var cameraEnabled = true
     @AppStorage(DefaultsKey.notchAccessoriesEnabled) private var accessoriesEnabled = true
     @AppStorage(DefaultsKey.notchCalendarEnabled) private var calendarEnabled = true
@@ -124,7 +125,7 @@ struct NotchSettings: View {
          String(notificationsEnabled), String(dismissNativeNotifications), String(gesturesEnabled),
          String(lyricsEnabled), String(lyricsOnline), String(queueEnabled), String(liveEqualizer),
          String(showPlayingMusic), String(includeOtherPlayers), String(musicShowVolume), idle, hiddenControls, controlOrder, size,
-         String(timerEnabled), String(timerSoundEnabled), String(hideTimerCountdown), String(timerFullCountdown),
+         String(timerEnabled), String(timerSoundEnabled), String(hideTimerCountdown), String(timerFullCountdown), String(pomodoroFullPrecision),
          String(cameraEnabled), String(accessoriesEnabled), String(outlineEnabled), String(hideMenuBarGap),
          String(customWidth), String(customHeight), String(cameraFitWidth), String(cameraFitHeight),
          String(capsuleFitWidth), String(capsuleFitHeight), String(capsuleFitDrop), String(hapticFeedback),
@@ -496,6 +497,10 @@ struct NotchSettings: View {
             switchRow("clock.badge.checkmark", activities.timerFullCountdown,
                       caption: activities.timerFullCountdownHint,
                       isOn: $timerFullCountdown)
+                .disabled(!AppFeature.notchTimer.isAvailable)
+            switchRow("timer", activities.pomodoroFullPrecision,
+                      caption: activities.pomodoroFullPrecisionHint,
+                      isOn: $pomodoroFullPrecision)
                 .disabled(!AppFeature.notchTimer.isAvailable)
             switchRow("eye.slash", activities.hideTimerCountdown,
                       isOn: $hideTimerCountdown)

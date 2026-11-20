@@ -344,8 +344,8 @@ struct NotchCapsuleTimerStrip: View {
             HStack(spacing: CapsuleLayout.markGap(companion)) {
                 mark
                 if timer.session.isRunning {
-                    TimelineView(.periodic(from: Date(timeIntervalSinceNow: NotchTimerSupport.tickScheduleOffset(
-                        for: timer.session, at: timer.now)), by: 1)) { _ in reading }
+                    TimelineView(.periodic(from: NotchTimerSupport.tickScheduleDate(for: timer.session, at: timer.now),
+                                           by: NotchTimerSupport.tickInterval(for: timer.session))) { _ in reading }
                 } else {
                     reading
                 }

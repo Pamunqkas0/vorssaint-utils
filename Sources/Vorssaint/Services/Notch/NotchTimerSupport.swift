@@ -295,21 +295,29 @@ enum NotchTimerSupport {
         return seconds >= 3600 ? hoursText(hours: seconds / 3600, minutes: seconds / 60 % 60) : clockText(seconds: seconds)
     }
 
-    static func clockText(for session: NotchTimerSession, at now: TimeInterval) -> String {
-        session.countsUp ? stopwatchText(session.reading(at: now)) : clockText(session.reading(at: now))
-    }
-
-    /// What a clock's digits roll on. The closed island can show a clock for
-    /// hours, and rolling every second kept it animating a third of the time,
-    /// at about ten times the energy of a clock that changes in place. There
-    /// the seconds change in place and the rest rolls: "12:04" rolls as "12".
-    static func rollingValue(_ value: String, everySecond: Bool) -> String {
-        guard !everySecond, let colon = value.lastIndex(of: ":") else { return value }
-        return String(value[..<colon])
-    }
-
     static func isFullCountdownEnabled(in defaults: UserDefaults = .standard) -> Bool {
         defaults.object(forKey: DefaultsKey.notchTimerFullCountdown) as? Bool ?? true
+    }
+
+    static func isPomodoroFullPrecisionEnabled(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: DefaultsKey.notchPomodoroFullPrecision) as? Bool ?? true
+    }
+
+    static func pomodoroClockText(remaining: TimeInterval) -> String {
+        let total = max(0, remaining)
+        let totalHundredths = Int((total * 100).rounded(.down))
+        let hours = totalHundredths / (3600 * 100)
+        let minutes = (totalHundredths / (60 * 100)) % 60
+        let seconds = (totalHundredths / 100) % 60
+        let hundredths = totalHundredths % 100
+        return String(format: "%02d:%02d:%02d.%02d", hours, minutes, seconds, hundredths)
+    }
+
+    static func clockText(for session: NotchTimerSession, at now: TimeInterval) -> String {
+        if session.mode == .pomodoro && isPomodoroFullPrecisionEnabled() {
+            return pomodoroClockText(remaining: session.reading(at: now))
+        }
+        return session.countsUp ? stopwatchText(session.reading(at: now)) : clockText(session.reading(at: now))
     }
 
     static func compactText(for session: NotchTimerSession, at now: TimeInterval, locale: Locale,
@@ -317,10 +325,27 @@ enum NotchTimerSupport {
         let full = fullFormat ?? isFullCountdownEnabled()
         let reading = session.reading(at: now)
         if session.countsUp { return compactStopwatchText(reading) }
+        if session.mode == .pomodoro && isPomodoroFullPrecisionEnabled() {
+            return pomodoroClockText(remaining: reading)
+        }
         if full {
             return clockText(reading)
         }
         return reading >= 3600 ? compactHoursText(reading) : compactText(reading, locale: locale)
+    }
+
+    static func tickInterval(for session: NotchTimerSession) -> TimeInterval {
+        if session.mode == .pomodoro && isPomodoroFullPrecisionEnabled() {
+            return 0.05
+        }
+        return 1.0
+    }
+
+    static func tickScheduleDate(for session: NotchTimerSession, at now: TimeInterval) -> Date {
+        if session.mode == .pomodoro && isPomodoroFullPrecisionEnabled() {
+            return .now
+        }
+        return Date(timeIntervalSinceNow: tickScheduleOffset(for: session, at: now))
     }
 
     /// Seconds until the reading next crosses a whole second. A tick every
@@ -351,11 +376,20 @@ enum NotchTimerSupport {
             fractionalPart: .hide(rounded: .down)).locale(locale))
     }
 
+    /// What a clock's digits roll on. The closed island can show a clock for
+    /// hours, and rolling every second kept it animating a third of the time,
+    /// at about ten times the energy of a clock that changes in place. There
+    /// the seconds change in place and the rest rolls: "12:04" rolls as "12".
+    static func rollingValue(_ value: String, everySecond: Bool) -> String {
+        guard !everySecond, let colon = value.lastIndex(of: ":") else { return value }
+        return String(value[..<colon])
+    }
+
     // MARK: Strip
 
     /// A wing is never narrower than the music strip's; the longest readings
     /// keep the width the strip always had.
-    static let stripWingRange: ClosedRange<CGFloat> = 44...72
+    static let stripWingRange: ClosedRange<CGFloat> = 44...96
     /// Air between the camera and what sits beside it.
     static let stripCameraGap: CGFloat = 6
 

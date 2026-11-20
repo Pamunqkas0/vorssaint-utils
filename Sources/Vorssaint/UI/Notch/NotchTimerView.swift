@@ -135,7 +135,11 @@ struct NotchTimerView: View {
     private var setupClock: String {
         switch mode {
         case .timer: return NotchTimerSupport.clockText(Double(timerMinutes.wrappedValue) * 60)
-        case .pomodoro: return NotchTimerSupport.clockText(Double(binding(.focus).wrappedValue) * 60)
+        case .pomodoro:
+            let minutes = Double(binding(.focus).wrappedValue) * 60
+            return NotchTimerSupport.isPomodoroFullPrecisionEnabled()
+                ? NotchTimerSupport.pomodoroClockText(remaining: minutes)
+                : NotchTimerSupport.clockText(minutes)
         case .stopwatch: return NotchTimerSupport.stopwatchText(0)
         }
     }
@@ -195,8 +199,8 @@ struct NotchTimerView: View {
             }
             Spacer(minLength: 0)
             if service.session.isRunning {
-                TimelineView(.periodic(from: Date(timeIntervalSinceNow: NotchTimerSupport.tickScheduleOffset(
-                    for: service.session, at: service.now)), by: 1)) { _ in reading }
+                TimelineView(.periodic(from: NotchTimerSupport.tickScheduleDate(for: service.session, at: service.now),
+                                       by: NotchTimerSupport.tickInterval(for: service.session))) { _ in reading }
             } else {
                 reading
             }
@@ -236,8 +240,9 @@ struct NotchTimerView: View {
 
     private var reading: some View {
         let value = NotchTimerSupport.clockText(for: service.session, at: service.now)
-        return clock(value, size: 62)
-            .modifier(NotchRollingDigits(value: value, countsDown: !service.session.countsUp))
+        let isPomodoro = service.session.mode == .pomodoro && NotchTimerSupport.isPomodoroFullPrecisionEnabled()
+        return clock(value, size: isPomodoro ? 52 : 62)
+            .modifier(NotchRollingDigits(value: value, countsDown: !service.session.countsUp, everySecond: isPomodoro ? false : true))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(phaseTitle)
             .accessibilityValue(value)
