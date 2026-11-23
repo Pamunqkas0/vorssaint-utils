@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Vorssaint
 
 import CoreAudio
+import Darwin
 import Foundation
 
 /// Production discovery, queue, transaction and mixer entry points against
@@ -21,30 +22,61 @@ enum DisplaySpeakerVolumeTests {
         var isActive = true
         var audio: Audio?
     }
-    enum AppVolumeMixer {
+    struct AppVolumeMixer {
+        static let shared = Self()
+        func refreshMonitorOutput() { Service.shared.onDisplayChange?() }
         static func hasSettableOutputVolume(for device: AudioObjectID) -> Bool { Service.shared.settable }
+    }
+    enum AppFeature {
+        case brightness
+        var isAvailable: Bool { true }
+    }
+    struct PreciseVolumeRollerService {
+        static let shared = Self()
+        func syncWithPreferences() {}
     }
     enum UserDefaults {
         static let standard = UserDefaults.self
         static func bool(forKey key: String) -> Bool {
-            key == DefaultsKey.displayVolumeKeysEnabled && Service.shared.wantsMonitorVolumeKeys
+            if key == DefaultsKey.brightnessControlEnabled { return Service.shared.brightnessControlsEnabled }
+            return key == DefaultsKey.displayVolumeKeysEnabled && Service.shared.wantsMonitorVolumeKeys
         }
     }
     static func CGDisplayIsActive(_ id: UInt32) -> UInt32 { 1 }
-    static func CGDisplayIsAsleep(_ id: UInt32) -> UInt32 { 0 }
+    static func CGDisplayIsAsleep(_ id: UInt32) -> UInt32 { Service.shared.displayIsAsleep ? 1 : 0 }
     struct Write: Equatable {
         let code: UInt8
         let value: UInt16
         init(_ code: UInt8, _ value: UInt16) { self.code = code; self.value = value }
     }
+    /// Exercise the production DDC send loop with one simulated I2C endpoint and no delays.
+    final class DDCWriter {
+        enum BrightnessBridge {
+            static let writeI2C: ((CFTypeRef, UInt32, UInt32, UnsafeMutableRawPointer, UInt32) -> Int32)? = {
+                service, _, _, _, _ in
+                guard let writer = service as? DDCWriter else { return KERN_FAILURE }
+                writer.writes += 1
+                return writer.writeResult
+            }
+        }
+        var writes = 0
+        var writeResult = KERN_SUCCESS
+        func paceDDCCommand(for id: UInt32) {}
+        func recordDDCCommandEnd(for id: UInt32) {}
+        func usleep(_ microseconds: UInt32) {}
+    }
+
     class Fixture {
         let stateLock = NSLock()
         let workQueue = Queue()
         var running = true
+        var brightnessControlsEnabled = true
+        var rebuildGeneration = 0
         var wantsMonitorVolume = true
         var wantsMonitorVolumeKeys = true
         var monitorVolumeKeySettings = MonitorVolumeKeySettings()
         var displayPowerIsSuspended = false
+        var displayIsAsleep = false
         var displays: [BrightnessDisplay] = [] { didSet { onDisplayChange?() } }
         var onDisplayChange: (() -> Void)?
         var hiddenDisplays: [(id: UInt32, name: String)] = []
@@ -55,6 +87,9 @@ enum DisplaySpeakerVolumeTests {
         var pendingSpeakerUnmutes: [String: UInt64] = [:]
         var speakerRestoreLevels: [String: BrightnessSupport.SpeakerLevel] = [:]
         var audioLifetime: UInt64 = 0
+        var disabledSpeakerLifetime: UInt64?
+        var scannedAudio = false
+        var audioScanQueued: Bool?
         var speakerLevelRevisions: [String: UInt64] = [:]
         var pendingAudio: [PendingAudio] = []
         var audioWriteInFlight = false
@@ -69,9 +104,14 @@ enum DisplaySpeakerVolumeTests {
         var rejectUnmute = false
         var rejectVolume = false
         var ignoreVolume = false
+        var ignoreMute = false
         var onSend: (() -> Void)?
         var afterSend: (() -> Void)?
-        var onRead: (() -> Void)?
+        var afterUnmute: (() -> Void)?
+        var onRead: ((UInt8) -> Void)?
+        var displayFingerprint = "fixture-identity"
+        var connectedSpeakerEndpointID: UInt64 = 1
+        var onEndpointLookup: (() -> Void)?
         var volumeOnUnmute: UInt16?
         var writes: [Write] = []
         var writtenIDs: [UInt32] = []
@@ -82,23 +122,45 @@ enum DisplaySpeakerVolumeTests {
         static func defaultOutputDevice() -> (id: AudioObjectID, name: String, transport: UInt32)? {
             (Service.shared.actualDevice, Service.shared.selectedAudioOutput?.name ?? "", kAudioDeviceTransportTypeHDMI)
         }
-        static func restorationDisplayFingerprint(_ id: UInt32) -> String? { "fixture-identity" }
+        static func restorationDisplayFingerprint(_ id: UInt32) -> String? { Service.shared.displayFingerprint }
+        static func speakerEndpointIsConnected(_ id: UInt64?) -> Bool {
+            let found = Service.shared.connectedSpeakerEndpointID == id
+            Service.shared.onEndpointLookup?()
+            return found
+        }
+        func start() { running = true }
+        func tearDownDisplayControls() {
+            running = false
+            removeAudioOutputObserver()
+            displays = []
+        }
+        func syncKeyTap() {}
+        func syncKeyboardBrightnessHotkeys() {}
+        func syncDisplayBrightnessHotkeys() {}
+        func installAudioOutputObserver() {}
+        func removeAudioOutputObserver() {
+            guard selectedAudioOutput != nil else { return }
+            audioOutputGeneration += 1
+            selectedAudioOutput = nil
+        }
         func refresh(force: Bool) { refreshes += 1 }
         func rescanForUnclaimedVolumeKey() { refreshes += 1 }
         func rememberedPaths(_ key: String) -> Set<String> { silentPaths }
         func rememberPath(_ path: String, key: String, remembered: Bool) { silentPaths.insert(path) }
-        func ddcProbe(_ code: UInt8, for id: UInt32, service: CFTypeRef, chip: UInt32) -> DDCProbe {
+        func ddcProbe(_ code: UInt8, for id: UInt32, service: CFTypeRef, chip: UInt32,
+                      whileCurrent: () -> Bool = { true }) -> DDCProbe {
+            guard whileCurrent() else { return .dead }
             chips.append(chip)
-            onRead?()
+            onRead?(code)
             if code == BrightnessSupport.audioVolumeCode { return .replied(current: raw, maximum: maximum) }
             guard code == BrightnessSupport.audioMuteCode, let nativeMuted else { return .dead }
             return .replied(current: nativeMuted ? 1 : unmutedReads, maximum: 2)
         }
         func ddcSend(to id: UInt32, service: CFTypeRef, chip: UInt32, packet: [UInt8],
-                     whileCurrent: () -> Bool) -> Bool {
-            chips.append(chip)
+                     acceptPartialWrite: Bool = false, whileCurrent: () -> Bool) -> Bool {
             onSend?()
             guard whileCurrent() else { return false }
+            chips.append(chip)
             let code = packet[2], value = UInt16(packet[3]) << 8 | UInt16(packet[4])
             writes.append(Write(code, value))
             writtenIDs.append(id)
@@ -107,12 +169,17 @@ enum DisplaySpeakerVolumeTests {
                 if !ignoreVolume { raw = value }
             } else if code == BrightnessSupport.audioMuteCode, nativeMuted != nil {
                 if value == 2, rejectUnmute { return false }
-                nativeMuted = value == 1
-                if value == 2, let volumeOnUnmute { raw = volumeOnUnmute }
+                if value != 1 || !ignoreMute { nativeMuted = value == 1 }
+                if value == 2 {
+                    if let volumeOnUnmute { raw = volumeOnUnmute }
+                    afterUnmute?()
+                }
             } else { return false }
             let after = afterSend
             afterSend = nil
             after?()
+            // The first DDC cycle reached the monitor. The next can lose its route.
+            if code == BrightnessSupport.audioMuteCode, value == 2 { return whileCurrent() || acceptPartialWrite }
             return true
         }
         func finish() {
@@ -126,7 +193,8 @@ enum DisplaySpeakerVolumeTests {
     @discardableResult
     static func connect(_ mixer: MixerOutputAdjustmentContract.Mixer,
                         raw: UInt16 = 40, maximum: UInt16 = 100, muted: Bool? = false,
-                        unmutedReads: UInt16 = 2, chip: UInt32 = BrightnessSupport.chipAddress) -> Service {
+                        unmutedReads: UInt16 = 2, chip: UInt32 = BrightnessSupport.chipAddress,
+                        registryEntryID: UInt64? = 1) -> Service {
         let service = Service()
         Service.shared = service
         service.raw = raw
@@ -135,9 +203,11 @@ enum DisplaySpeakerVolumeTests {
         service.unmutedReads = unmutedReads
         let endpoint = NSObject()
         if let probed = service.probeAudio(for: 7, service: endpoint, chip: chip, path: "port-a") {
-            service.audioRoutes[7] = AudioRoute(path: "port-a", fingerprint: "fixture-identity",
-                                                service: endpoint, chipAddress: chip, hasNativeMute: probed.hasNativeMute,
+            service.audioRoutes[7] = AudioRoute(path: "port-a", fingerprint: service.displayFingerprint,
+                                                service: endpoint, registryEntryID: registryEntryID,
+                                                chipAddress: chip, hasNativeMute: probed.hasNativeMute,
                                                 unmutesLeavingZero: probed.unmutesLeavingZero)
+            service.scannedAudio = true
             service.displays = [BrightnessDisplay(id: 7, name: "Monitor A", audio: probed.state)]
         }
         service.onDisplayChange = { [weak service, weak mixer] in mixer?.monitorOutput = service?.monitorSpeakerOutput() }
@@ -145,7 +215,32 @@ enum DisplaySpeakerVolumeTests {
         return service
     }
 
+    private static func checkInterruptedDDCWrites(_ suite: TestSuite) {
+        let writer = DDCWriter()
+        let chip = BrightnessSupport.chipAddress
+        let unmute = BrightnessSupport.writePacket(code: BrightnessSupport.audioMuteCode,
+                                                   value: BrightnessSupport.audioUnmutedValue)
+        let luminance = BrightnessSupport.writePacket(code: BrightnessSupport.luminanceCode, value: 5)
+        let currentUntilFirstSend = { writer.writes == 0 }
+        let released = writer.ddcSend(to: 7, service: writer, chip: chip, packet: unmute,
+                                      acceptPartialWrite: true, whileCurrent: currentUntilFirstSend)
+        suite.expect(released && writer.writes == 1,
+                     "an accepted unmute survives cancellation before its repeat without sending again")
+        writer.writes = 0
+        let brightened = writer.ddcSend(to: 7, service: writer, chip: chip, packet: luminance,
+                                        whileCurrent: currentUntilFirstSend)
+        suite.expect(!brightened && writer.writes == 1,
+                     "a luminance write stays cancelled when its second cycle loses the route")
+        writer.writes = 0
+        writer.writeResult = KERN_FAILURE
+        let rejected = writer.ddcSend(to: 7, service: writer, chip: chip, packet: unmute,
+                                      acceptPartialWrite: true, whileCurrent: currentUntilFirstSend)
+        suite.expect(!rejected && writer.writes == 1,
+                     "a rejected unmute never counts as an accepted write when its repeat is cancelled")
+    }
+
     static func run(_ suite: TestSuite) {
+        checkInterruptedDDCWrites(suite)
         suite.expect(BrightnessSupport.audioReply(current: 50, maximum: 100) == 0.5
                      && BrightnessSupport.audioReply(current: 100, maximum: 100) == 1,
                      "a volume reply is read against its own maximum")
@@ -159,7 +254,7 @@ enum DisplaySpeakerVolumeTests {
         suite.expect(service.probeAudio(for: 7, service: endpoint, chip: BrightnessSupport.chipAddress, path: "a") == nil && service.silentPaths.isEmpty,
                      "an impossible reading does not permanently classify a connection as silent")
         service.raw = 3
-        service.onRead = { [weak service] in service?.wantsMonitorVolume = false }
+        service.onRead = { [weak service] _ in service?.wantsMonitorVolume = false }
         suite.expect(service.probeAudio(for: 7, service: endpoint, chip: BrightnessSupport.chipAddress, path: "a") == nil,
                      "turning off speakers during discovery cannot publish a writable route")
         service.onRead = nil
@@ -347,9 +442,31 @@ enum DisplaySpeakerVolumeTests {
         firstTwin.ioDisplayLocation = "port-a"
         secondTwin.ioDisplayLocation = "port-b"
         hdmiEndpoint.ioDisplayLocation = "port-a"
-        suite.expect(BrightnessSupport.brightnessServices(displays: [(0, firstTwin), (1, secondTwin)],
+        let twins = [(index: 0, identity: firstTwin), (index: 1, identity: secondTwin)]
+        suite.expect(BrightnessSupport.brightnessServices(displays: twins,
                         candidates: [0, 1], services: [hdmiEndpoint]) == [0: 4],
                      "one service behind identical EDIDs belongs only to the matching physical connection")
+        let modelOnly = BrightnessSupport.ServiceIdentity(productName: "HDMI panel", ordinal: 5)
+        for displays in [twins, Array(twins.reversed())] {
+            for services in [[hdmiEndpoint, modelOnly], [modelOnly, hdmiEndpoint]] {
+                suite.expect(BrightnessSupport.brightnessServices(displays: displays, candidates: [0, 1],
+                                services: services) == [0: 4, 1: 5],
+                             "the port match leaves the other twin its model-matched service in either order")
+            }
+        }
+        suite.expect(BrightnessSupport.brightnessServices(displays: twins, candidates: [1],
+                        services: [hdmiEndpoint, modelOnly]) == [1: 5],
+                     "a twin outside the brightness candidates still reserves its port-matched service")
+        let otherModelOnly = BrightnessSupport.ServiceIdentity(productName: "HDMI panel", ordinal: 6)
+        suite.expect(BrightnessSupport.brightnessServices(displays: twins, candidates: [0, 1],
+                        services: [modelOnly, otherModelOnly]).isEmpty,
+                     "identical models without a port or serial match leave both services ambiguous")
+        suite.expect(BrightnessSupport.brightnessServices(displays: twins, candidates: [0, 1],
+                        services: [hdmiEndpoint, modelOnly, otherModelOnly]) == [0: 4],
+                     "two equally good services for the remaining twin keep only the port match")
+        suite.expect(BrightnessSupport.brightnessServices(displays: twins, candidates: [0, 1],
+                        services: [hdmiEndpoint, .init(ordinal: 5)]) == [0: 4],
+                     "a leftover service without identity evidence cannot acquire the other twin")
         suite.expect(BrightnessSupport.keepsSoftwareDimOnDiscovery(previouslySoftware: true,
                         dimmed: true, pending: nil)
                      && BrightnessSupport.keepsSoftwareDimOnDiscovery(previouslySoftware: true,
