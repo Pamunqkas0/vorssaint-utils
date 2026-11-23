@@ -137,6 +137,7 @@ final class NotchService: ObservableObject {
     @Published private(set) var captureSelectionInProgress = false
     @Published var pinned = false
     @Published private(set) var selected: NotchModule = .controls
+    @Published private(set) var meetingNotesDetailVisible = false
     @Published private(set) var showingAppPanel = false
     @Published private(set) var showingSections = false
     @Published private(set) var sectionQuery = ""
@@ -833,7 +834,7 @@ final class NotchService: ObservableObject {
         let musicExtras = NotchLyricsSupport.isEnabled() || NotchQueueSupport.isEnabled()
         let launcher = QuickLauncherService.shared
         return pageSize(in: expandedGeometry, module: showingAppPanel ? .tools : selected,
-                        detail: selectedMetric != nil, panel: showingAppPanel,
+                        detail: selectedMetric != nil || meetingNotesDetailVisible, panel: showingAppPanel,
                         detailHeight: selectedMetric == .fan ? fanDetailHeight : nil,
                         musicExtraHeight: musicExtras && musicDetailVisible ? geometry.musicExtrasHeight : 0,
                         fileMediaHeight: !choosingFileDropDestination && AppFeature.mediaTools.isAvailable
@@ -880,7 +881,7 @@ final class NotchService: ObservableObject {
         let controls = NotchSupport.controls()
         let sliders = controls.filter(\.isLevel).count
         let shortcuts = controls.filter { !$0.isLevel && $0 != .music }.count
-        return geometry.expandedSize(module: module, detail: detail, panel: panel, detailHeight: detailHeight,
+        var size = geometry.expandedSize(module: module, detail: detail, panel: panel, detailHeight: detailHeight,
                                      shortcutCount: shortcuts,
                                      sliderCount: sliders, controlsHaveMusic: controls.contains(.music), musicHasContent: NotchMusicService.shared.playback != nil,
                                      musicShowsVolume: musicShowsVolume,
@@ -893,6 +894,20 @@ final class NotchService: ObservableObject {
                                         ? NotchTimerService.shared.session.mode : NotchTimerSupport.savedMode(),
                                      agentsHeight: module == .agents && !detail && !panel
                                         ? agentsContentHeight(width: geometry.contentWidth) : nil)
+        if module == .meetingNotes, meetingNotesDetailVisible, !panel {
+            // A focused edit view needs only a compact popover width and a
+            // little extra vertical room for its fields and safe bottom inset.
+            size.width = min(480, geometry.screen.width - 24)
+            let detailContentHeight: CGFloat = 320
+            let detailHeight = geometry.headerTopInset + geometry.headerChromeHeight + detailContentHeight
+            size.height = min(max(size.height, detailHeight), geometry.screen.height - 48)
+        } else if module == .meetingNotes, !detail, !panel {
+            // Keep room for the external quick-access rails on both sides while
+            // giving the Bento workspace up to 920pt on wider displays.
+            let maxRoom = max(320, geometry.screen.width - NotchQuickAccessLayout.gutter * 2 - 24)
+            size.width = min(max(size.width, min(920, maxRoom)), maxRoom)
+        }
+        return size
     }
 
     /// The AI page is as tall as the cards it shows; nil while the logs are
@@ -948,10 +963,11 @@ final class NotchService: ObservableObject {
     }
     var contentSize: CGSize { expandedGeometry.contentSize(for: expandedSize) }
     var usesGlassSurface: Bool {
+        if expanded && selected == .meetingNotes { return false }
         // The Command Bar keeps the island black, as its drop is: it changes
         // height with every keystroke, and the glass is drawn a frame behind
         // the shape, which showed rows outside it for that frame.
-        (expanded && !showingCommandBar) || peeking || dragPlaceholder || noticeExpanded
+        return (expanded && !showingCommandBar) || peeking || dragPlaceholder || noticeExpanded
             || (captureControls != nil && !captureControlsCollapsed)
     }
 
@@ -1951,6 +1967,13 @@ final class NotchService: ObservableObject {
         showMeetingNotes()
     }
 
+    func setMeetingNotesDetailVisible(_ visible: Bool) {
+        guard meetingNotesDetailVisible != visible else { return }
+        mutatePresentation(transitionContent: expanded && selected == .meetingNotes ? .replace : .none) {
+            meetingNotesDetailVisible = visible
+        }
+    }
+
     @discardableResult
     func showMeetingNotes(toggle: Bool = false) -> Bool {
         guard NotchSupport.routesMeetingNotes(), acceptsUserInteraction else { return false }
@@ -2772,7 +2795,8 @@ final class NotchService: ObservableObject {
         presented.surfaceShift = surfaceShift
         windowHost?.present(size: size, geometry: presented, animated: animated,
                             transitionContent: contentTransition,
-                            quickAccess: expanded && captureControls == nil && !showingCommandBar && !access.buttons.isEmpty
+                            quickAccess: expanded && captureControls == nil
+                                && !showingCommandBar && !access.buttons.isEmpty
                                 ? access : nil,
                             revealFromHidden: !hiddenInFullscreen && captureControls == nil
                                 && (revealingFromAppFullscreen

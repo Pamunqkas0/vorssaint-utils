@@ -241,8 +241,12 @@ struct NotchTimerView: View {
     private var reading: some View {
         let value = NotchTimerSupport.clockText(for: service.session, at: service.now)
         let isPomodoro = service.session.mode == .pomodoro && NotchTimerSupport.isPomodoroFullPrecisionEnabled()
+        // The clock itself keeps centiseconds; only the rolling transition
+        // keys off whole seconds, like the timer and stopwatch clocks.
+        let animationValue = isPomodoro ? String(value.prefix(8)) : value
         return clock(value, size: isPomodoro ? 52 : 62)
-            .modifier(NotchRollingDigits(value: value, countsDown: !service.session.countsUp, everySecond: isPomodoro ? false : true))
+            .modifier(NotchRollingDigits(value: animationValue, countsDown: !service.session.countsUp,
+                                         everySecond: true))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(phaseTitle)
             .accessibilityValue(value)

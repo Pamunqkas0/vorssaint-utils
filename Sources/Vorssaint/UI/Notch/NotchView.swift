@@ -497,6 +497,8 @@ struct NotchView: View {
         case .files:
             // One shelf tile and its vertical insets; the actions are in the top row.
             size.height = max(size.height, 88 + 8)
+        case .meetingNotes where service.meetingNotesDetailVisible:
+            size.height = max(size.height, 320)
         default: break
         }
         return size
@@ -507,6 +509,7 @@ struct NotchView: View {
     private var scrollsVertically: Bool {
         guard !service.showingAppPanel else { return false }
         return contentOverflows || service.selectedMetric != nil
+            || service.meetingNotesDetailVisible
             || (service.selected == .captures && service.captureContent != nil)
             || (service.selected == .tools && launcher.isEditing && launcher.activeUtility == nil)
     }

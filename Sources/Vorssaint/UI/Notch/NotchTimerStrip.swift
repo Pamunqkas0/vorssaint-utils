@@ -25,6 +25,9 @@ struct NotchTimerStrip: View {
     private var companion: NotchCompactActivity? { service.compactCompanion }
     private var iconSize: CGFloat { NotchTimerSupport.stripIconSize(height: geometry.compactActivityContentHeight) }
     private var textSize: CGFloat { NotchTimerSupport.stripTextSize(height: geometry.compactActivityContentHeight) }
+    private var pomodoroReading: Bool {
+        timer.session.mode == .pomodoro && NotchTimerSupport.isPomodoroFullPrecisionEnabled()
+    }
     private var iconInset: CGFloat {
         guard !geometry.compactActivityUsesFooter else { return 0 }
         if let companion { return NotchCompanionMark.inset(companion, geometry: geometry) }
@@ -47,10 +50,12 @@ struct NotchTimerStrip: View {
                         if let companion {
                             NotchCompanionMark(companion: companion, geometry: geometry)
                         } else {
-                            Image(systemName: timer.session.completed ? "checkmark.circle"
-                                  : timer.session.isPaused ? "pause.circle" : timer.session.countsUp ? "stopwatch" : "timer")
-                                .font(.system(size: iconSize, weight: .medium))
-                                .foregroundStyle(.orange)
+                            NotchTimerPulseMark(size: iconSize,
+                                                progress: timer.session.duration > 0
+                                                    ? 1 - timer.session.reading(at: timer.now) / timer.session.duration : 0,
+                                                running: timer.session.isRunning,
+                                                completed: timer.session.completed,
+                                                countsUp: timer.session.countsUp)
                         }
                     }
                 }
@@ -80,21 +85,38 @@ struct NotchTimerStrip: View {
         let now = timer.now
         let text = NotchTimerSupport.compactText(for: timer.session, at: now,
                                                  locale: Locale(identifier: l10n.language.rawValue))
+        let pomodoroParts: (whole: String, fraction: String)? = {
+            guard pomodoroReading, let separator = text.lastIndex(of: ".") else { return nil }
+            return (String(text[..<separator]), String(text[separator...]))
+        }()
         return Button { service.openActivity(.timer) } label: {
             Group {
                 if geometry.compactActivityWingWidth >= 42 {
-                    Text(text)
-                        .font(.system(size: textSize, weight: .medium)).monospacedDigit()
-                        .foregroundStyle(.orange)
-                        .lineLimit(1).minimumScaleFactor(0.65)
-                        .modifier(NotchRollingDigits(value: text, countsDown: !timer.session.countsUp, everySecond: false))
-                        // A reading that gains or loses a character, like
-                        // 10m becoming 9m, resizes the wings; the service
-                        // measures the same reading.
-                        .onChange(of: NotchAgentSupport.readingShape(text)) { _, _ in
-                            DispatchQueue.main.async { service.refreshPresentation() }
+                    if let pomodoroParts {
+                        HStack(spacing: 0) {
+                            Text(pomodoroParts.whole)
+                                .foregroundStyle(Color(red: 1, green: 0.624, blue: 0.039))
+                            Text(pomodoroParts.fraction)
+                                .foregroundStyle(Color(red: 1, green: 0.624, blue: 0.039).opacity(0.72))
                         }
+                        .font(.system(size: textSize, weight: .medium, design: .monospaced))
+                        .monospacedDigit()
+                        .lineLimit(1).fixedSize()
+                        .modifier(NotchRollingDigits(value: String(text.prefix(8)), countsDown: true,
+                                                     everySecond: true))
+                    } else {
+                        Text(text)
+                            .font(.system(size: textSize, weight: .medium)).monospacedDigit()
+                            .foregroundStyle(Color(red: 1, green: 0.624, blue: 0.039))
+                            .lineLimit(1).minimumScaleFactor(0.65)
+                            .modifier(NotchRollingDigits(value: text, countsDown: !timer.session.countsUp, everySecond: false))
+                    }
                 }
+            }
+            // A reading that gains or loses a character resizes the wings;
+            // the service measures the same reading.
+            .onChange(of: NotchAgentSupport.readingShape(text)) { _, _ in
+                DispatchQueue.main.async { service.refreshPresentation() }
             }
             .padding(.trailing, textInset)
             .frame(width: geometry.compactActivityWingWidth, height: geometry.compactActivityContentHeight,
@@ -103,6 +125,46 @@ struct NotchTimerStrip: View {
         }
         .accessibilityLabel(FeatureStrings.notchActivities(l10n.language).phase(timer.session.phase))
         .accessibilityValue(NotchTimerSupport.clockText(for: timer.session, at: now))
+    }
+}
+
+/// A tiny progress mark gives the closed island a live cue without adding a
+/// separate animation timer: it follows the same 50 ms Pomodoro updates as
+/// the clock and settles into a check when a session completes.
+private struct NotchTimerPulseMark: View {
+    let size: CGFloat
+    let progress: Double
+    let running: Bool
+    let completed: Bool
+    let countsUp: Bool
+    @State private var celebration = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var tint: Color { Color(red: 1, green: 0.624, blue: 0.039) }
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(tint.opacity(0.24), lineWidth: 1.6)
+            Circle().trim(from: 0, to: CGFloat(min(1, max(0, countsUp ? 1 - progress : progress))))
+                .stroke(tint, style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Image(systemName: completed ? "checkmark" : running ? "flame.fill" : "timer")
+                .font(.system(size: max(7, size * 0.52), weight: .semibold))
+                .foregroundStyle(tint)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .frame(width: size, height: size)
+        .animation(reduceMotion ? nil : .linear(duration: 0.05), value: progress)
+        .shadow(color: tint.opacity(celebration ? 0.75 : 0), radius: celebration ? 5 : 0)
+        .scaleEffect(celebration ? 1.12 : 1)
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.55), value: celebration)
+        .onChange(of: completed) { _, done in
+            guard done else { return }
+            celebration = true
+            guard !reduceMotion else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { celebration = false }
+        }
+        .accessibilityHidden(true)
     }
 }
 
