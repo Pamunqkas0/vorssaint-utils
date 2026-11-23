@@ -463,6 +463,14 @@ enum CommandBarCatalog {
                 shortcut: roleShortcut(.scratchpad),
                 run: { _ in afterBeat { ScratchpadService.shared.show() } }))
         }
+        if AppFeature.fileConverter.isAvailable {
+            entries.append(CommandBarEntry(
+                id: "action.fileConverter",
+                title: FeatureStrings.converter(language).pageTitle,
+                subtitle: area(.fileConverter, under: FeatureStrings.converter(language).windowTitle),
+                icon: .symbol("arrow.triangle.2.circlepath.doc.on.clipboard"),
+                run: { _ in afterBeat { ConverterService.shared.show() } }))
+        }
         if AppFeature.cameraPreview.isAvailable {
             entries.append(CommandBarEntry(
                 id: "action.cameraPreview",

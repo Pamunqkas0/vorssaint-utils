@@ -136,6 +136,7 @@ enum ReleaseChangeAliases {
         case .scratchpad: return ["scratchpad"]
         case .passwordVault: return ["password vault", "passwords", "password manager", "vault"]
         case .meetingNotes: return ["meeting notes", "meeting", "notes", "todo", "checklist", "action items"]
+        case .fileConverter: return ["file converter", "converter", "image converter", "document converter", "pdf", "webp", "docx"]
         case .commandBar: return ["command bar", "calculator"]
         case .screenRecorder: return ["screen recording", "screen recordings", "recording", "recordings",
             "recorder", "recording editor", "gif export", "gif exports"]

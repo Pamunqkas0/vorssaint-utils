@@ -236,6 +236,7 @@ struct NotchView: View {
             case .timer: NotchCapsuleTimerStrip(service: service, size: size)
             case .watch: NotchCapsuleWatchStrip(service: service, size: size)
             case .downloads: NotchCapsuleDownloadStrip(service: service, size: size)
+            case .fileConverter: NotchCapsuleConverterStrip(service: service, size: size)
             case .agents: NotchCapsuleAgentStrip(service: service, size: size)
             case .calendar: NotchCapsuleCalendarStrip(service: service, size: size)
             case .music: NotchCapsuleMusicStrip(service: service, size: size, interactive: true)
@@ -250,6 +251,7 @@ struct NotchView: View {
             case .timer: NotchTimerStrip(service: service, displayGeometry: geometry)
             case .watch: NotchWatchStrip(service: service, displayGeometry: geometry)
             case .downloads: NotchDownloadStrip(service: service, displayGeometry: geometry)
+            case .fileConverter: NotchConverterStrip(service: service, displayGeometry: geometry)
             case .agents: NotchAgentStrip(service: service, displayGeometry: geometry)
             case .calendar: NotchCalendarStrip(service: service, displayGeometry: geometry)
             case .music: NotchMusicStrip(service: service, displayGeometry: geometry, interactive: true)
@@ -605,6 +607,7 @@ struct NotchView: View {
             case .scratchpad: NotchScratchpadView(service: service)
             case .passwordVault: NotchPasswordVaultView(service: service)
             case .meetingNotes: NotchMeetingNotesView(service: service, size: pageSize)
+            case .fileConverter: NotchConverterView(service: service, size: pageSize)
             case .agents: NotchAgentsView(size: pageSize)
             case .watch: NotchWatchView(size: pageSize)
             }
@@ -842,6 +845,7 @@ extension NotchModule: PanelOrderItem {
         case .scratchpad: return FeatureStrings.scratchpad(language).pageTitle
         case .passwordVault: return FeatureStrings.passwordVault(language).pageTitle
         case .meetingNotes: return FeatureStrings.meetingNotes(language).title
+        case .fileConverter: return FeatureStrings.converter(language).pageTitle
         case .agents: return FeatureStrings.notchAgents(language).title
         case .watch: return FeatureStrings.notchWatch(language).title
         }

@@ -114,6 +114,8 @@ struct NotchControlsView: View {
             NotchActionTile(symbol: item.symbol, title: item.title(l10n), action: service.openPasswordVault)
         case .meetingNotes:
             NotchActionTile(symbol: item.symbol, title: item.title(l10n), action: service.openMeetingNotes)
+        case .fileConverter:
+            NotchActionTile(symbol: item.symbol, title: item.title(l10n), action: service.openFileConverter)
         case .timer: NotchTimerTile(service: service)
         case .calendar: NotchCalendarTile(service: service)
         case .volume, .brightness, .keyboardLight, .music: EmptyView()
@@ -138,6 +140,7 @@ extension NotchControlItem {
         case .scratchpad: return FeatureStrings.scratchpad(l10n.language).pageTitle
         case .passwordVault: return FeatureStrings.passwordVault(l10n.language).pageTitle
         case .meetingNotes: return FeatureStrings.meetingNotes(l10n.language).title
+        case .fileConverter: return FeatureStrings.converter(l10n.language).pageTitle
         case .music: return NotchModule.music.title(l10n.language)
         case .timer: return NotchModule.timer.title(l10n.language)
         case .calendar: return NotchModule.calendar.title(l10n.language)

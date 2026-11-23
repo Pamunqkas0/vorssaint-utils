@@ -105,6 +105,7 @@ struct NotchSettings: View {
     @AppStorage(DefaultsKey.notchScratchpad) private var scratchpad = true
     @AppStorage(DefaultsKey.notchPasswordVault) private var passwordVault = true
     @AppStorage(DefaultsKey.notchMeetingNotes) private var meetingNotes = true
+    @AppStorage(DefaultsKey.notchFileConverter) private var fileConverter = true
     @AppStorage(DefaultsKey.brightnessControlEnabled) private var brightnessControlEnabled = false
     @AppStorage(DefaultsKey.clipboardHistoryEnabled) private var clipboardHistoryEnabled = false
     @AppStorage(DefaultsKey.notchHoverExpands) private var hoverExpand = true
@@ -136,7 +137,7 @@ struct NotchSettings: View {
          String(brightness), String(keyboardLight),
          String(microphone), String(battery), String(clipboard), String(clipboardWindow), clipboardCardSize,
          String(capture), String(trackChange), captureAction, String(showInCaptures),
-         String(returnHome), homeModule, String(opensActivity), String(scratchpad), String(passwordVault), String(meetingNotes),
+         String(returnHome), homeModule, String(opensActivity), String(scratchpad), String(passwordVault), String(meetingNotes), String(fileConverter),
          String(agentsEnabled), String(watchEnabled), String(keepAwakeActivity), String(shortcutEnabled)]
     }
 
@@ -554,6 +555,8 @@ struct NotchSettings: View {
             destination(FeatureStrings.passwordVault(l10n.language).pageTitle, symbol: "lock.shield", value: $passwordVault)
         case .meetingNotes:
             destination(FeatureStrings.meetingNotes(l10n.language).title, symbol: "list.bullet.clipboard", value: $meetingNotes)
+        case .fileConverter:
+            destination(FeatureStrings.converter(l10n.language).pageTitle, symbol: "arrow.triangle.2.circlepath.doc.on.clipboard", value: $fileConverter)
         case .agents:
             NotchAgentsSettingsControls()
         case .watch:
@@ -898,6 +901,7 @@ struct NotchSettings: View {
         case .scratchpad: return .scratchpad
         case .passwordVault: return .passwordVault
         case .meetingNotes: return .meetingNotes
+        case .fileConverter: return .fileConverter
         case .agents: return .notchAgents
         case .watch: return .notchWatch
         }

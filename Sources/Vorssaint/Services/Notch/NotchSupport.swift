@@ -7,7 +7,7 @@ import Foundation
 import CoreGraphics
 
 enum NotchModule: String, CaseIterable, Identifiable {
-    case controls, mixer, music, clipboard, captures, files, system, tools, calendar, notifications, timer, camera, downloads, scratchpad, passwordVault, meetingNotes, agents, watch
+    case controls, mixer, music, clipboard, captures, files, system, tools, calendar, notifications, timer, camera, downloads, scratchpad, passwordVault, meetingNotes, fileConverter, agents, watch
     var id: String { rawValue }
 
     var symbol: String {
@@ -31,6 +31,7 @@ enum NotchModule: String, CaseIterable, Identifiable {
         case .scratchpad: return "note.text"
         case .passwordVault: return "lock.shield"
         case .meetingNotes: return "list.bullet.clipboard"
+        case .fileConverter: return "arrow.triangle.2.circlepath.doc.on.clipboard"
         case .agents: return "sparkles"
         case .watch: return "eye"
         }
@@ -55,6 +56,7 @@ enum NotchModule: String, CaseIterable, Identifiable {
         case .scratchpad: return "p"
         case .passwordVault: return "k"
         case .meetingNotes: return "e"
+        case .fileConverter: return "x"
         case .agents: return "g"
         case .watch: return "o"
         }
@@ -80,6 +82,7 @@ enum NotchModule: String, CaseIterable, Identifiable {
         case .scratchpad: return AppFeature.scratchpad.isAvailable(in: defaults)
         case .passwordVault: return AppFeature.passwordVault.isAvailable(in: defaults)
         case .meetingNotes: return AppFeature.meetingNotes.isAvailable(in: defaults)
+        case .fileConverter: return AppFeature.fileConverter.isAvailable(in: defaults)
         case .agents: return AppFeature.notchAgents.isAvailable(in: defaults)
         case .watch: return AppFeature.notchWatch.isAvailable(in: defaults)
         case .system:
@@ -830,7 +833,7 @@ enum NotchMusicStripLayout {
 }
 
 enum NotchCompactActivity: String, Identifiable {
-    case timer, watch, downloads, agents, calendar, music, keepAwake
+    case timer, watch, downloads, fileConverter, agents, calendar, music, keepAwake
 
     var id: String { rawValue }
 
@@ -839,6 +842,7 @@ enum NotchCompactActivity: String, Identifiable {
         case .timer: return FeatureStrings.notchActivities(language).timer
         case .watch: return FeatureStrings.notchWatch(language).title
         case .downloads: return FeatureStrings.notchFiles(language).downloadsTitle
+        case .fileConverter: return FeatureStrings.converter(language).pageTitle
         case .agents: return FeatureStrings.notchAgents(language).title
         case .calendar: return FeatureStrings.notchCalendar(language).title
         case .music: return FeatureStrings.notch(language).music
@@ -852,6 +856,7 @@ enum NotchCompactActivity: String, Identifiable {
         case .timer: return .timer
         case .watch: return .watch
         case .downloads: return .downloads
+        case .fileConverter: return .fileConverter
         case .agents: return .agents
         case .calendar: return .calendar
         case .music: return .music
@@ -1291,7 +1296,7 @@ enum NotchControlSetupRequirement: Equatable {
 }
 
 enum NotchControlItem: String, CaseIterable, Identifiable {
-    case volume, brightness, keyboardLight, music, mixer, keepAwake, timer, calendar, microphone, screenshot, recording, speedTest, panel, commandBar, scratchpad, passwordVault, meetingNotes
+    case volume, brightness, keyboardLight, music, mixer, keepAwake, timer, calendar, microphone, screenshot, recording, speedTest, panel, commandBar, scratchpad, passwordVault, meetingNotes, fileConverter
     static let defaultHidden = "keyboardLight,microphone,screenshot,recording,speedTest,panel,commandBar,scratchpad"
     var id: String { rawValue }
 
@@ -1321,6 +1326,7 @@ enum NotchControlItem: String, CaseIterable, Identifiable {
         case .scratchpad: return "note.text"
         case .passwordVault: return "lock.shield"
         case .meetingNotes: return "list.bullet.clipboard"
+        case .fileConverter: return "arrow.triangle.2.circlepath.doc.on.clipboard"
         case .music: return NotchModule.music.symbol
         case .timer: return NotchModule.timer.symbol
         case .calendar: return NotchModule.calendar.symbol
@@ -1339,6 +1345,7 @@ enum NotchControlItem: String, CaseIterable, Identifiable {
         case .scratchpad: return .feature(.scratchpad)
         case .passwordVault: return .page(.passwordVault, feature: .passwordVault)
         case .meetingNotes: return .page(.meetingNotes, feature: .meetingNotes)
+        case .fileConverter: return .page(.fileConverter, feature: .fileConverter)
         case .panel: return .none
         case .mixer: return .page(.mixer, feature: .mixer)
         case .speedTest: return .page(.system, feature: .monitorNetwork)
@@ -1363,6 +1370,7 @@ enum NotchControlItem: String, CaseIterable, Identifiable {
         case .scratchpad: return AppFeature.scratchpad.isAvailable(in: defaults)
         case .passwordVault: return AppFeature.passwordVault.isAvailable(in: defaults) && NotchSupport.modules(in: defaults).contains(.passwordVault)
         case .meetingNotes: return AppFeature.meetingNotes.isAvailable(in: defaults) && NotchSupport.modules(in: defaults).contains(.meetingNotes)
+        case .fileConverter: return AppFeature.fileConverter.isAvailable(in: defaults) && NotchSupport.modules(in: defaults).contains(.fileConverter)
         case .panel: return true
         case .music: return NotchSupport.modules(in: defaults).contains(.music)
         case .timer: return NotchSupport.modules(in: defaults).contains(.timer)
@@ -1811,10 +1819,10 @@ enum NotchSupport {
     /// Keep Awake comes last: a session can run all day, even more than
     /// music plays, and it only says that the Mac stays awake. A watch
     /// follows the timer: the person started both and is waiting on them.
-    static func compactActivities(timer: Bool, watch: Bool = false, downloads: Bool, agents: Bool,
+    static func compactActivities(timer: Bool, watch: Bool = false, downloads: Bool, converter: Bool = false, agents: Bool,
                                   calendar: Bool, music: Bool, keepAwake: Bool = false) -> [NotchCompactActivity] {
         let candidates: [(Bool, NotchCompactActivity)] = [
-            (timer, .timer), (watch, .watch), (downloads, .downloads), (agents, .agents),
+            (timer, .timer), (watch, .watch), (downloads, .downloads), (converter, .fileConverter), (agents, .agents),
             (calendar, .calendar), (music, .music), (keepAwake, .keepAwake)
         ]
         return candidates.compactMap { $0.0 ? $0.1 : nil }
@@ -1880,6 +1888,7 @@ enum NotchSupport {
                 && ($0 != .agents || defaults.bool(forKey: DefaultsKey.notchAgentsEnabled))
                 && ($0 != .passwordVault || (defaults.object(forKey: DefaultsKey.notchPasswordVault) as? Bool ?? true))
                 && ($0 != .meetingNotes || (defaults.object(forKey: DefaultsKey.notchMeetingNotes) as? Bool ?? true))
+                && ($0 != .fileConverter || (defaults.object(forKey: DefaultsKey.notchFileConverter) as? Bool ?? true))
                 && ($0 != .watch || defaults.bool(forKey: DefaultsKey.notchWatchEnabled))
         }
     }
@@ -2123,6 +2132,11 @@ enum NotchSupport {
     static func routesMeetingNotes(in defaults: UserDefaults = .standard) -> Bool {
         isEnabled(in: defaults) && (defaults.object(forKey: DefaultsKey.notchMeetingNotes) as? Bool ?? true)
             && modules(in: defaults).contains(.meetingNotes)
+    }
+
+    static func routesFileConverter(in defaults: UserDefaults = .standard) -> Bool {
+        isEnabled(in: defaults) && (defaults.object(forKey: DefaultsKey.notchFileConverter) as? Bool ?? true)
+            && modules(in: defaults).contains(.fileConverter)
     }
 
     /// A notice the pointer holds open is being read. Only the same kind of
@@ -2818,7 +2832,7 @@ struct NotchGeometry: Equatable {
                 // Only the cards a person chose; a short set leaves a short island.
                 contentHeight = min(budget, agentsHeight.map { $0 > 0 ? $0 : NotchLayout.emptyHeight } ?? budget)
             // Lists and previews fill the chosen content budget.
-            case .mixer, .calendar, .clipboard, .captures, .files, .notifications, .downloads, .camera, .scratchpad, .passwordVault, .meetingNotes, .watch:
+            case .mixer, .calendar, .clipboard, .captures, .files, .notifications, .downloads, .camera, .scratchpad, .passwordVault, .meetingNotes, .fileConverter, .watch:
                 contentHeight = budget
             }
         }

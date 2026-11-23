@@ -30,6 +30,11 @@ struct QuickToolsSettings: View {
     @AppStorage(DefaultsKey.panelUtilityPasswordVault) private var showPasswordVaultInPanel = true
     @AppStorage(DefaultsKey.notchPasswordVault) private var showPasswordVaultInNotch = true
     @AppStorage(DefaultsKey.passwordVaultAutoLockMinutes) private var passwordVaultAutoLockMinutes = 5
+    @AppStorage(DefaultsKey.panelUtilityFileConverter) private var showFileConverterInPanel = true
+    @AppStorage(DefaultsKey.converterOutputMode) private var converterOutputMode = "sameAsSource"
+    @AppStorage(DefaultsKey.converterCustomOutputFolder) private var converterCustomFolder = ""
+    @AppStorage(DefaultsKey.converterDefaultQuality) private var converterDefaultQuality = 0.85
+    @AppStorage(DefaultsKey.converterPreserveMetadata) private var converterPreserveMetadata = true
     @State private var previewPasswordVisible = false
     @State private var previewCopied = false
 
@@ -449,6 +454,80 @@ struct QuickToolsSettings: View {
                     Text(FeatureStrings.passwordVault(l10n.language).pageTitle)
                 }
                 .settingsFormSectionAnchor(.passwordVault)
+            }
+
+            if AppFeature.fileConverter.isAvailable {
+                let converterStrings = FeatureStrings.converter(l10n.language)
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "arrow.triangle.2.circlepath.doc.on.clipboard")
+                            .font(.system(size: 24))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.blue, .cyan],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(converterStrings.windowTitle)
+                                .font(.headline)
+                            Text(converterStrings.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            ConverterService.shared.show()
+                        } label: {
+                            Label(converterStrings.openButton, systemImage: "macwindow")
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    Picker(converterStrings.outputFolderSetting, selection: $converterOutputMode) {
+                        Text(converterStrings.sameFolder).tag("sameAsSource")
+                        Text(converterStrings.downloadsFolder).tag("downloads")
+                        Text("Custom Folder").tag("custom")
+                    }
+
+                    if converterOutputMode == "custom" {
+                        HStack {
+                            Text(converterCustomFolder.isEmpty ? "Not set" : converterCustomFolder)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button(converterStrings.chooseFolder) {
+                                let open = NSOpenPanel()
+                                open.canChooseFiles = false
+                                open.canChooseDirectories = true
+                                open.canCreateDirectories = true
+                                if open.runModal() == .OK, let url = open.url {
+                                    converterCustomFolder = url.path
+                                    ConverterService.shared.syncWithPreferences()
+                                }
+                            }
+                        }
+                    }
+
+                    HStack {
+                        Text(converterStrings.defaultQualitySetting)
+                        Spacer()
+                        Slider(value: $converterDefaultQuality, in: 0.1...1.0, step: 0.05)
+                            .frame(width: 150)
+                        Text("\(Int((converterDefaultQuality * 100).rounded()))%")
+                            .font(.caption.monospacedDigit())
+                            .frame(width: 38, alignment: .trailing)
+                    }
+
+                    Toggle(converterStrings.preserveMetadata, isOn: $converterPreserveMetadata)
+                    Toggle("Show in Menu Bar Utilities", isOn: $showFileConverterInPanel)
+                } header: {
+                    Text(converterStrings.pageTitle)
+                }
+                .settingsFormSectionAnchor(.fileConverter)
             }
 
             if AppFeature.meetingNotes.isAvailable {

@@ -688,8 +688,13 @@ enum DefaultsKey {
     static let panelUtilityCameraPreview = "panelUtilityCameraPreview"
     static let panelUtilityScratchpad = "panelUtilityScratchpad"
     static let panelUtilityPasswordVault = "panelUtilityPasswordVault"
+    static let panelUtilityFileConverter = "panelUtilityFileConverter"
     static let passwordVaultAutoLockMinutes = "passwordVaultAutoLockMinutes"
     static let passwordVaultMaskByDefault = "passwordVaultMaskByDefault"
+    static let converterOutputMode = "converterOutputMode"
+    static let converterCustomOutputFolder = "converterCustomOutputFolder"
+    static let converterDefaultQuality = "converterDefaultQuality"
+    static let converterPreserveMetadata = "converterPreserveMetadata"
     static let clipboardHistoryShortcutEnabled = "clipboardHistoryShortcutEnabled"
     static let clipboardHistoryShortcut = "clipboardHistoryShortcut"
     // Mode chooser visibility for dedicated capture shortcuts.
@@ -886,6 +891,7 @@ enum DefaultsKey {
     static let notchKeepAwakeActivity = "notchKeepAwakeActivity" // a running Keep Awake session in the closed island
     static let notchScratchpad = "notchScratchpad"
     static let notchPasswordVault = "notchPasswordVault"
+    static let notchFileConverter = "notchFileConverter"
     static let notchMeetingNotes = "notchMeetingNotes"
     static let meetingNotesDocument = "meetingNotesDocument"
     static let meetingNotesCompact = "meetingNotesCompact"
@@ -1515,6 +1521,7 @@ enum Defaults {
         DefaultsKey.notchKeepAwakeActivity: false,
         DefaultsKey.notchScratchpad: true,
         DefaultsKey.notchPasswordVault: true,
+        DefaultsKey.notchFileConverter: true,
         DefaultsKey.notchMeetingNotes: true,
         DefaultsKey.meetingNotesCompact: false,
         DefaultsKey.notchHoverExpands: true,
@@ -1928,8 +1935,13 @@ enum Defaults {
         DefaultsKey.panelUtilityCameraPreview: true,
         DefaultsKey.panelUtilityScratchpad: true,
         DefaultsKey.panelUtilityPasswordVault: true,
+        DefaultsKey.panelUtilityFileConverter: true,
         DefaultsKey.passwordVaultAutoLockMinutes: 5,
         DefaultsKey.passwordVaultMaskByDefault: true,
+        DefaultsKey.converterOutputMode: "sameAsSource",
+        DefaultsKey.converterCustomOutputFolder: "",
+        DefaultsKey.converterDefaultQuality: 0.85,
+        DefaultsKey.converterPreserveMetadata: true,
         DefaultsKey.clipboardHistoryShortcutEnabled: true,
         DefaultsKey.clipboardHistoryShortcut: GlobalShortcut.clipboardDefault.storageValue,
         DefaultsKey.recorderShortcutEnabled: false,

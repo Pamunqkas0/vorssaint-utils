@@ -57,6 +57,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
     case scratchpad
     case passwordVault
     case meetingNotes
+    case fileConverter
     case cleaningMode
     case soundOutputSwitcher
     case keyboardBrightnessShortcuts
@@ -78,7 +79,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
         case .finderCutPaste, .finderRename: return .cutPaste
         case .clipboardHistory, .pastePlain: return .clipboard
         case .quickLauncher, .quickToggles, .quitApps, .micMute, .cameraPreview, .wallpaper, .scratchpad,
-             .passwordVault, .meetingNotes, .cleaningMode:
+             .passwordVault, .meetingNotes, .fileConverter, .cleaningMode:
             return .quickTools
         case .screenshot, .screenshotScrolling, .screenRecorder, .colorPicker, .screenOCR:
             return .screenshot
@@ -438,6 +439,8 @@ extension AppFeature {
             return FeatureSettingsDestination(.quickTools, sectionAnchor: .passwordVault)
         case .meetingNotes:
             return FeatureSettingsDestination(.quickTools, sectionAnchor: .meetingNotes)
+        case .fileConverter:
+            return FeatureSettingsDestination(.quickTools, sectionAnchor: .fileConverter)
         case .commandBar: return FeatureSettingsDestination(.commandBar)
         case .screenRecorder:
             return FeatureSettingsDestination(.screenshot, sectionAnchor: .screenRecorder)
@@ -476,7 +479,7 @@ enum FeatureVisibilitySupport {
         case .shelf: return [.shelf]
         case .media: return [.mediaTools]
         case .quickTools: return [.quickLauncher, .quickToggles, .quitApps, .micMute,
-                                  .cameraPreview, .wallpaper, .scratchpad, .passwordVault, .meetingNotes, .cleaningMode]
+                                  .cameraPreview, .wallpaper, .scratchpad, .passwordVault, .meetingNotes, .fileConverter, .cleaningMode]
         case .urlCleaner: return [.urlCleaner]
         case .cleaner: return [.cleaner]
         case .homebrew: return [.homebrew]

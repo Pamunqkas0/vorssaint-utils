@@ -189,6 +189,7 @@ struct MetricsTests {
                 QuitProtectionRoutingContract.QuitProtectionService.routingChecks(suite)
             }),
             ("scratchpad", { ScratchpadMarkTests.run { suite.expect($0, $1) } }),
+            ("converter", { ConverterTests.run(suite) }),
             ("recording", {
                 RecorderPreparationTests.run(suite)
                 RecorderSampleTimingTests.run(suite)

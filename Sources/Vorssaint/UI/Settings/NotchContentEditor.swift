@@ -171,6 +171,7 @@ struct NotchPagePreview: View {
         case .scratchpad: NotchScratchpadStill()
         case .passwordVault: NotchPasswordVaultStill()
         case .meetingNotes: NotchMeetingNotesStill()
+        case .fileConverter: NotchFileConverterStill()
         case .agents:
             // Off, nothing reads the logs, so the page would wait forever.
             if NotchAgentSupport.isEnabled() {
@@ -317,6 +318,29 @@ private struct NotchMeetingNotesStill: View {
     }
 }
 
+private struct NotchFileConverterStill: View {
+    @ObservedObject private var converter = ConverterService.shared
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        let strings = FeatureStrings.converter(l10n.language)
+        VStack(spacing: 8) {
+            Image(systemName: "arrow.triangle.2.circlepath.doc.on.clipboard")
+                .font(.system(size: 28))
+                .foregroundStyle(Color.cyan)
+            Text(strings.pageTitle)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+            Text(converter.items.isEmpty ? strings.dropTitle : "\(converter.items.count) queued")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(10)
+        .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
+    }
+}
+
 /// One section in the list beside its options: the box that shows it in the
 /// island, its icon and its name. A row drags to a new place; choosing one
 /// opens its options and its preview. A box rather than a switch leaves the
@@ -454,6 +478,7 @@ extension NotchModule {
         case .scratchpad: return .yellow
         case .passwordVault: return .indigo
         case .meetingNotes: return .teal
+        case .fileConverter: return .cyan
         case .agents: return Color(red: 0.85, green: 0.47, blue: 0.34)
         case .watch: return .purple
         }

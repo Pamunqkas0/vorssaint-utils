@@ -594,6 +594,15 @@ final class ShelfTileView: NSView, NSDraggingSource {
             menu.addItem(edit)
         }
 
+        if AppFeature.fileConverter.isAvailable,
+           urls.contains(where: { ConverterFormat.detect(from: $0) != nil }) {
+            let convert = NSMenuItem(title: FeatureStrings.converter(L10n.shared.language).openButton,
+                                     action: #selector(convertFiles),
+                                     keyEquivalent: "")
+            convert.target = self
+            menu.addItem(convert)
+        }
+
         menu.addItem(sharePresenter.shareMenuItem(for: urls, title: strings.shelfActionShare))
         menu.addItem(.separator())
 
@@ -668,6 +677,13 @@ final class ShelfTileView: NSView, NSDraggingSource {
         guard let url = ShelfInteractionSupport.editableImage(
             in: ShelfService.shared.fileURLsForActions(startingAt: item)) else { return }
         ScreenshotService.shared.editImage(at: url)
+    }
+
+    @objc private func convertFiles() {
+        let urls = ShelfService.shared.fileURLsForActions(startingAt: item)
+            .filter { ConverterFormat.detect(from: $0) != nil }
+        guard !urls.isEmpty else { return }
+        ConverterService.shared.open(with: urls)
     }
 
     @objc private func revealFiles() {

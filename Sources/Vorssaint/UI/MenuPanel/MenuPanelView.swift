@@ -556,7 +556,7 @@ private enum UtilityPanelItem: String, PanelOrderItem, Identifiable {
     // are migrated once without disturbing the rest of the user's layout.
     case screenshot, quickLauncher, appUpdates, cleaner, homebrew, media, clipboard, windowLayout,
          uninstaller, cleanURL, cleaning, screenOCR, colorPicker, cameraPreview, scratchpad,
-         passwordVault, commandBar, screenRecorder, portManager
+         passwordVault, fileConverter, commandBar, screenRecorder, portManager
 
     var id: String { rawValue }
 
@@ -581,6 +581,7 @@ private enum UtilityPanelItem: String, PanelOrderItem, Identifiable {
         case .cameraPreview: return .cameraPreview
         case .scratchpad: return .scratchpad
         case .passwordVault: return .passwordVault
+        case .fileConverter: return .fileConverter
         case .commandBar: return .commandBar
         case .portManager: return .portManager
         }
@@ -617,6 +618,7 @@ struct UtilitiesSection: View {
     @AppStorage(DefaultsKey.panelUtilityCameraPreview) private var showCameraPreview = true
     @AppStorage(DefaultsKey.panelUtilityScratchpad) private var showScratchpad = true
     @AppStorage(DefaultsKey.panelUtilityPasswordVault) private var showPasswordVault = true
+    @AppStorage(DefaultsKey.panelUtilityFileConverter) private var showFileConverter = true
     @AppStorage(DefaultsKey.panelUtilityCommandBar) private var showCommandBar = true
     @AppStorage(DefaultsKey.panelUtilityScreenRecorder) private var showScreenRecorder = true
     @AppStorage(DefaultsKey.panelUtilityPortManager) private var showPortManager = true
@@ -780,6 +782,7 @@ struct UtilitiesSection: View {
         case .cameraPreview: return showCameraPreview
         case .scratchpad: return showScratchpad
         case .passwordVault: return showPasswordVault
+        case .fileConverter: return showFileConverter
         case .commandBar: return showCommandBar
         case .quickLauncher: return showQuickLauncher
         case .screenshot: return showScreenshot
@@ -1004,6 +1007,19 @@ struct UtilitiesSection: View {
                                     appDelegate()?.closePopover()
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                         PasswordVaultService.shared.show()
+                                    }
+                                })
+        case .fileConverter:
+            UtilityActionButton(title: FeatureStrings.converter(l10n.language).pageTitle,
+                                caption: FeatureStrings.converter(l10n.language).panelCaption,
+                                systemImage: "arrow.triangle.2.circlepath.doc.on.clipboard",
+                                isEditing: editing,
+                                showsDragHandle: true,
+                                visibility: $showFileConverter,
+                                action: {
+                                    appDelegate()?.closePopover()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                        ConverterService.shared.show()
                                     }
                                 })
         case .quickLauncher:

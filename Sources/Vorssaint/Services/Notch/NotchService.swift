@@ -559,6 +559,10 @@ final class NotchService: ObservableObject {
         NotchKeepAwakeSupport.showsActivity() && KeepAwakeManager.shared.isActive
     }
 
+    var hasFileConverterActivity: Bool {
+        ConverterService.shared.isConverting && AppFeature.fileConverter.isAvailable && NotchSupport.routesFileConverter()
+    }
+
     var compactActivity: NotchCompactActivity? {
         // A new song waiting for its notice is not drawn yet.
         activitySelection.current(available: awaitsTrackNotice ? compactActivities.filter { $0 != .music } : compactActivities)
@@ -566,8 +570,8 @@ final class NotchService: ObservableObject {
 
     var compactActivities: [NotchCompactActivity] {
         NotchSupport.compactActivities(timer: hasTimerActivity, watch: hasWatchActivity, downloads: hasDownloadActivity,
-                                      agents: hasAgentActivity, calendar: hasCalendarActivity,
-                                      music: hasMusicActivity, keepAwake: hasKeepAwakeActivity)
+                                      converter: hasFileConverterActivity, agents: hasAgentActivity,
+                                      calendar: hasCalendarActivity, music: hasMusicActivity, keepAwake: hasKeepAwakeActivity)
     }
 
     var showsCompactActivityPicker: Bool {
@@ -686,6 +690,8 @@ final class NotchService: ObservableObject {
         case .downloads:
             let name = NotchDownloadService.shared.items.first { $0.active && !$0.completed }?.name
             return geometry.compactDownloadGeometry(wing: NotchDownloadSupport.compactWing(for: name, in: geometry))
+        case .fileConverter:
+            return geometry.compactDownloadGeometry(wing: NotchDownloadSupport.compactWing(for: nil, in: geometry))
         case .agents: return geometry.compactAgentGeometry(wing: agentStripWing(in: geometry))
         case .watch: return geometry.compactWatchGeometry(wing: watchStripWing(in: geometry))
         case .calendar:
@@ -1105,6 +1111,9 @@ final class NotchService: ObservableObject {
         case .downloads:
             return layout.downloadSurface(name: download?.name ?? FeatureStrings.notchFiles(language).downloadsTitle,
                                           hasProgress: download?.fraction != nil, geometry: geometry, language: language)
+        case .fileConverter:
+            return layout.downloadSurface(name: FeatureStrings.converter(language).pageTitle,
+                                          hasProgress: true, geometry: geometry, language: language)
         case .agents:
             let reading = NotchAgentSupport.stripReading(AgentUsageService.shared.snapshot, readout: NotchAgentSupport.readout(),
                                                          display: NotchAgentSupport.limitDisplay(),
@@ -1943,6 +1952,7 @@ final class NotchService: ObservableObject {
             case .scratchpad: openScratchpad()
             case .passwordVault: openPasswordVault()
             case .meetingNotes: openMeetingNotes()
+            case .fileConverter: openFileConverter()
             case .volume, .brightness, .keyboardLight: select(.controls)
             }
         }
@@ -1965,6 +1975,19 @@ final class NotchService: ObservableObject {
 
     func openMeetingNotes() {
         showMeetingNotes()
+    }
+
+    func openFileConverter() {
+        if !showFileConverter() { perform { ConverterService.shared.show() } }
+    }
+
+    @discardableResult
+    func showFileConverter(toggle: Bool = false) -> Bool {
+        guard NotchSupport.routesFileConverter(), acceptsUserInteraction else { return false }
+        if toggle, expanded, selected == .fileConverter, !showingAppPanel, !showingSections, !showingCommandBar,
+           selectedMetric == nil, let panel, panel.isKeyWindow || NSApp.keyWindow === panel { collapse() }
+        else { open(.fileConverter) }
+        return true
     }
 
     func setMeetingNotesDetailVisible(_ visible: Bool) {
@@ -2336,16 +2359,35 @@ final class NotchService: ObservableObject {
     }
 
     func canAcceptFileDrop(_ pasteboard: NSPasteboard) -> Bool {
+        guard acceptsUserInteraction, captureControls == nil else { return false }
+        if expanded, selected == .fileConverter, AppFeature.fileConverter.isAvailable {
+            return ConverterService.canAcceptPasteboard(pasteboard)
+        }
         // Leave file drags to the open media card as they cross the island's
         // edge. The Files page keeps its own Shelf / Optimize destination.
-        acceptsUserInteraction && captureControls == nil && modules.contains(.files)
+        if modules.contains(.files)
             && !(directMediaDropWorkspace != nil && pasteboard.types?.contains(.fileURL) == true)
             && AppFeature.shelf.isAvailable
-            && UserDefaults.standard.bool(forKey: DefaultsKey.shelfEnabled)
+            && UserDefaults.standard.bool(forKey: DefaultsKey.shelfEnabled) {
+            return true
+        }
+        if !expanded, modules.contains(.fileConverter), AppFeature.fileConverter.isAvailable {
+            return ConverterService.canAcceptPasteboard(pasteboard)
+        }
+        return false
     }
 
     func beginFileDrop(_ pasteboard: NSPasteboard) {
         guard canAcceptFileDrop(pasteboard) else { return }
+        if expanded, selected == .fileConverter {
+            ConverterService.shared.isNotchDropTargeted = true
+            return
+        }
+        if !modules.contains(.files) || !AppFeature.shelf.isAvailable || !UserDefaults.standard.bool(forKey: DefaultsKey.shelfEnabled) {
+            ConverterService.shared.isNotchDropTargeted = true
+            open(.fileConverter, takeFocus: false)
+            return
+        }
         choosingFileDropDestination = NotchFileToolsService.shared.mediaDropContent(for: pasteboard) != nil
         targetsMediaDrop = false
         open(.files, takeFocus: false)
@@ -2353,6 +2395,9 @@ final class NotchService: ObservableObject {
 
     @discardableResult
     func updateFileDrop(at point: CGPoint) -> Bool {
+        if expanded, selected == .fileConverter {
+            return true
+        }
         let targeted = choosingFileDropDestination
             && NotchFileToolsSupport.mediaDropArea(in: expandedGeometry, size: surfaceSize).contains(point)
         if targetsMediaDrop != targeted { targetsMediaDrop = targeted }
@@ -2360,6 +2405,7 @@ final class NotchService: ObservableObject {
     }
 
     func endFileDrop() {
+        ConverterService.shared.isNotchDropTargeted = false
         let changed = choosingFileDropDestination
         if changed { choosingFileDropDestination = false }
         if targetsMediaDrop { targetsMediaDrop = false }
@@ -2374,6 +2420,19 @@ final class NotchService: ObservableObject {
     func accept(_ pasteboard: NSPasteboard) -> Bool {
         defer { endFileDrop() }
         guard canAcceptFileDrop(pasteboard) else { return false }
+        if (expanded && selected == .fileConverter)
+            || !modules.contains(.files)
+            || !AppFeature.shelf.isAvailable
+            || !UserDefaults.standard.bool(forKey: DefaultsKey.shelfEnabled) {
+            let accepted = ConverterService.shared.acceptDrop(pasteboard: pasteboard)
+            if accepted {
+                heldDrag = false
+                dragPlaceholder = false
+                open(.fileConverter)
+                reactMascot(.celebrate, patience: 30)
+            }
+            return accepted
+        }
         let optimize = choosingFileDropDestination && targetsMediaDrop
         let accepted = optimize
             ? NotchFileToolsService.shared.openMediaDrop(pasteboard)
@@ -3707,11 +3766,16 @@ final class NotchService: ObservableObject {
             windowHost?.setHoverHandler { [weak self] in self?.hover($0) }
             panel?.title = FeatureStrings.notch(L10n.shared.language).title
         }
-        if modules.contains(.files), AppFeature.shelf.isAvailable {
+        if (modules.contains(.files) && AppFeature.shelf.isAvailable)
+            || (modules.contains(.fileConverter) && AppFeature.fileConverter.isAvailable) {
             windowHost?.setFileDropActions(NotchFileDropActions(
                 canAccept: { [weak self] pasteboard in
-                    self?.canAcceptFileDrop(pasteboard) == true && !ShelfService.shared.isInternalDragActive
-                        && ShelfService.shared.canAcceptPasteboard(pasteboard)
+                    guard let self else { return false }
+                    if self.expanded, self.selected == .fileConverter, AppFeature.fileConverter.isAvailable {
+                        return self.canAcceptFileDrop(pasteboard)
+                    }
+                    return self.canAcceptFileDrop(pasteboard) && !ShelfService.shared.isInternalDragActive
+                        && (ShelfService.shared.canAcceptPasteboard(pasteboard) || ConverterService.canAcceptPasteboard(pasteboard))
                 },
                 enter: { [weak self] in self?.beginFileDrop($0) },
                 accept: { [weak self] in self?.accept($0) == true },
