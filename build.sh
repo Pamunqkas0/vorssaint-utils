@@ -607,6 +607,7 @@ if (( TEST )); then
         Sources/Vorssaint/Services/ManagedDownloads/WhatsAppDownloadSupport.swift
         Sources/Vorssaint/Core/SecureInputSupport.swift
         Sources/Vorssaint/Services/Converter/ConverterModels.swift
+        Sources/Vorssaint/Services/Converter/PDFToDocxConverter.swift
         Sources/Vorssaint/Services/Converter/ConverterEngine.swift
         Tests/*.swift
         build/generated-tests/*.swift

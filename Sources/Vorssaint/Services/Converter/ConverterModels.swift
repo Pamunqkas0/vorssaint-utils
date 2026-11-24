@@ -340,8 +340,7 @@ struct ConverterCapabilities: Equatable, Sendable {
 
     var pdfToDocxBridgeLabel: String {
         if sofficePath != nil { return "LibreOffice" }
-        if pandocPath != nil { return "PDFKit + Pandoc" }
-        return "Native PDFKit + textutil"
+        return "Native PDFKit + OpenXML"
     }
 
     static func detect() -> ConverterCapabilities {

@@ -149,7 +149,80 @@ enum ConverterTests {
             } catch {
                 suite.expect(false, "TXT -> DOCX conversion threw: \(error)")
             }
+
+            // PDF (text + embedded image) -> DOCX preserving both text and images
+            let richPDF = tempDir.appendingPathComponent("rich.pdf")
+            let richCreated = writeSamplePDFWithImage(to: richPDF)
+            suite.expect(richCreated, "created sample PDF with text and embedded image")
+            let richDOCX = tempDir.appendingPathComponent("rich.docx")
+            do {
+                let richSize = try ConverterEngine.convertDocument(
+                    sourceURL: richPDF,
+                    from: .pdf,
+                    to: .docx,
+                    outputURL: richDOCX,
+                    options: ConverterDocumentOptions()
+                )
+                suite.expect(richSize > 0 && FileManager.default.fileExists(atPath: richDOCX.path),
+                             "PDF -> DOCX produced non-empty file")
+                let zipListing = listZipEntries(at: richDOCX)
+                suite.expect(zipListing.contains("word/document.xml"), "DOCX contains word/document.xml")
+                suite.expect(zipListing.contains("word/media/image1.png"), "DOCX embeds extracted figure image1.png")
+            } catch {
+                suite.expect(false, "Rich PDF -> DOCX conversion threw: \(error)")
+            }
         }
+    }
+
+    private static func writeSamplePDFWithImage(to url: URL) -> Bool {
+        var pageRect = CGRect(x: 0, y: 0, width: 612, height: 792)
+        guard let consumer = CGDataConsumer(url: url as CFURL),
+              let ctx = CGContext(consumer: consumer, mediaBox: &pageRect, nil) else {
+            return false
+        }
+        ctx.beginPage(mediaBox: &pageRect)
+        // Draw heading text
+        let attr = NSAttributedString(
+            string: "1. Bug Report Screenshot",
+            attributes: [.font: NSFont.boldSystemFont(ofSize: 16), .foregroundColor: NSColor.black]
+        )
+        let line = CTLineCreateWithAttributedString(attr)
+        ctx.textPosition = CGPoint(x: 72, y: 700)
+        CTLineDraw(line, ctx)
+
+        // Draw embedded raster image
+        if let imgCtx = CGContext(
+            data: nil,
+            width: 200,
+            height: 120,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) {
+            imgCtx.setFillColor(CGColor(red: 0.9, green: 0.25, blue: 0.25, alpha: 1))
+            imgCtx.fill(CGRect(x: 0, y: 0, width: 200, height: 120))
+            if let cgImg = imgCtx.makeImage() {
+                ctx.draw(cgImg, in: CGRect(x: 100, y: 500, width: 200, height: 120))
+            }
+        }
+
+        ctx.endPage()
+        ctx.closePDF()
+        return true
+    }
+
+    private static func listZipEntries(at url: URL) -> String {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        p.arguments = ["-l", url.path]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = Pipe()
+        try? p.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     private static func writeSamplePNG(to url: URL, width: Int, height: Int) -> Bool {

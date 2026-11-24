@@ -399,23 +399,11 @@ enum ConverterEngine {
         }
 
         if targetFormat == .docx {
-            // Native fallback: PDFKit -> RTF -> textutil -> DOCX
-            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-            defer { try? FileManager.default.removeItem(at: tempDir) }
-
-            let tempRTF = tempDir.appendingPathComponent("bridge.rtf")
-            let rtfData = try combinedAttr.data(
-                from: NSRange(location: 0, length: combinedAttr.length),
-                documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+            return try PDFToDocxConverter.convert(
+                pdfURL: sourceURL,
+                pageIndices: ConverterDocumentOptions.parsePageIndices(options.pageRangeText, totalPages: totalPages),
+                outputURL: outputURL
             )
-            try rtfData.write(to: tempRTF, options: .atomic)
-            try runProcess(
-                executable: "/usr/bin/textutil",
-                arguments: ["-convert", "docx", "-output", outputURL.path, tempRTF.path]
-            )
-            let attrs = try FileManager.default.attributesOfItem(atPath: outputURL.path)
-            return (attrs[.size] as? NSNumber)?.int64Value ?? 0
         }
 
         throw ConverterError.unsupportedConversion("Unsupported target format \(targetFormat.displayName) from PDF.")
