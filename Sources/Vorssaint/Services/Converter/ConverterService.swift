@@ -149,15 +149,18 @@ final class ConverterService: NSObject, ObservableObject, NSWindowDelegate {
         }
     }
 
-    func openFilePicker() {
+    func openFilePicker(completion: (() -> Void)? = nil) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.allowedContentTypes = ConverterFormat.allCases.map(\.utType)
         panel.message = "Select images or documents to convert"
-        if panel.runModal() == .OK {
-            addFiles(panel.urls)
+        panel.begin { [weak self] response in
+            if response == .OK {
+                self?.addFiles(panel.urls)
+            }
+            completion?()
         }
     }
 

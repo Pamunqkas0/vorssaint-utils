@@ -85,8 +85,9 @@ struct NotchConverterView: View {
             // Add Files
             Button {
                 service.keepFileInteractionOpen(true)
-                converter.openFilePicker()
-                service.keepFileInteractionOpen(false)
+                converter.openFilePicker {
+                    service.keepFileInteractionOpen(false)
+                }
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 10.5, weight: .semibold))
@@ -195,8 +196,9 @@ struct NotchConverterView: View {
             HStack(spacing: 8) {
                 Button {
                     service.keepFileInteractionOpen(true)
-                    converter.openFilePicker()
-                    service.keepFileInteractionOpen(false)
+                    converter.openFilePicker {
+                        service.keepFileInteractionOpen(false)
+                    }
                 } label: {
                     Label(strings.browseFiles, systemImage: "folder")
                         .font(.system(size: 11, weight: .medium))
